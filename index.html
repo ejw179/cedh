@@ -214,9 +214,10 @@
 <div class="modal-overlay" id="modal-create">
   <div class="modal">
     <h2>New Event</h2>
+    <div id="create-event-error" style="display:none;" class="alert alert-warn"></div>
     <div class="form-group">
       <label>Event Name</label>
-      <input type="text" id="new-event-name" placeholder="e.g. Tuesday Night cEDH">
+      <input type="text" id="new-event-name" placeholder="e.g. Tuesday Night cEDH" onkeydown="if(event.key==='Enter')createEvent()">
     </div>
     <div class="form-group">
       <label>Date</label>
@@ -256,6 +257,7 @@
 <div class="modal-overlay" id="modal-score">
   <div class="modal">
     <h2 id="score-modal-title">Enter Pod Results</h2>
+    <div id="score-modal-error" style="display:none;" class="alert alert-warn"></div>
     <div id="score-modal-body"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-score')">Cancel</button>
@@ -418,25 +420,32 @@ function generateRound(event) {
 // EVENT MANAGEMENT
 // ============================================================
 function createEvent() {
+  const errEl = document.getElementById('create-event-error');
   const name = document.getElementById('new-event-name').value.trim();
-  if (!name) { alert('Please enter an event name.'); return; }
+  if (!name) {
+    errEl.textContent = 'Please enter an event name.';
+    errEl.style.display = 'block';
+    document.getElementById('new-event-name').focus();
+    return;
+  }
+  errEl.style.display = 'none';
   const date = document.getElementById('new-event-date').value || new Date().toISOString().split('T')[0];
   const format = document.getElementById('new-event-format').value;
   const swissRounds = parseInt(document.getElementById('new-event-rounds').value);
   const topCutSize = parseInt(document.getElementById('new-event-topcut').value);
 
-  const event = {
+  const newEvent = {
     id: Date.now().toString(),
     name, date, format, swissRounds, topCutSize,
-    status: 'registration', // registration | swiss | topcut | final | complete
+    status: 'registration',
     players: [],
     rounds: [],
     topCut: null,
     createdAt: Date.now()
   };
-  DB.save(d => d.events.push(event));
+  DB.save(d => d.events.push(newEvent));
   closeModal('modal-create');
-  openTournament(event.id);
+  openTournament(newEvent.id);
 }
 
 function getEvent(id) {
@@ -586,7 +595,9 @@ function addPlayer() {
   if (!name) return;
   const event = getEvent(currentEventId);
   if (event.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-    alert('Player already added.'); return;
+    input.style.borderColor = 'var(--red)';
+    setTimeout(() => input.style.borderColor = '', 1500);
+    return;
   }
   event.players.push({ id: Date.now().toString(), name, points: 0, wins: 0, draws: 0 });
   saveEvent(event);
@@ -769,13 +780,13 @@ function saveSwissScore() {
     results = scorePodContext.results || {};
     const pids = scorePodContext.playerIds;
     if (pids.some(pid => !results[pid])) {
-      alert('Please assign a result to every player.'); return;
+      showScoreError('Please assign a result to every player.'); return;
     }
     const outcomes = pids.map(pid => results[pid]);
     const winCount = outcomes.filter(o => o === 'win').length;
     const drawCount = outcomes.filter(o => o === 'draw').length;
-    if (winCount > 1) { alert('Only one player can win.'); return; }
-    if (winCount === 0 && drawCount !== pids.length) { alert('Either one player wins, or all players draw.'); return; }
+    if (winCount > 1) { showScoreError('Only one player can win.'); return; }
+    if (winCount === 0 && drawCount !== pids.length) { showScoreError('Either one player wins, or all players draw.'); return; }
   }
 
   applyResults(event, roundIdx, podIdx, results);
@@ -916,12 +927,12 @@ function saveScore_topcut() {
   const event = getEvent(currentEventId);
   const { phase, podIdx, playerIds, results } = scorePodContext;
 
-  if (playerIds.some(pid => !results[pid])) { alert('Please assign a result to every player.'); return; }
+  if (playerIds.some(pid => !results[pid])) { showScoreError('Please assign a result to every player.'); return; }
   const outcomes = playerIds.map(pid => results[pid]);
   const winCount = outcomes.filter(o => o === 'win').length;
   const drawCount = outcomes.filter(o => o === 'draw').length;
-  if (winCount > 1) { alert('Only one player can win.'); return; }
-  if (winCount === 0 && drawCount !== playerIds.length) { alert('Either one player wins, or all players draw.'); return; }
+  if (winCount > 1) { showScoreError('Only one player can win.'); return; }
+  if (winCount === 0 && drawCount !== playerIds.length) { showScoreError('Either one player wins, or all players draw.'); return; }
 
   // Apply points
   playerIds.forEach(pid => {
@@ -945,7 +956,13 @@ function saveScore_topcut() {
   renderTournament();
 }
 
+function showScoreError(msg) {
+  const el = document.getElementById('score-modal-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
 function saveScore() {
+  document.getElementById('score-modal-error').style.display = 'none';
   if (scorePodContext?.isTopCut) { saveScore_topcut(); return; }
   saveSwissScore();
 }
@@ -1111,7 +1128,8 @@ function closeTV() {
 // ARCHIVE
 // ============================================================
 function archiveEvent() {
-  if (!confirm('Archive this event? It will move to the archive and become read-only.')) return;
+  const confirmed = window.confirm('Archive this event? It will move to the archive and become read-only.');
+  if (!confirmed) return;
   DB.save(d => {
     const idx = d.events.findIndex(e => e.id === currentEventId);
     if (idx >= 0) {
@@ -1188,7 +1206,9 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 function openCreateModal() {
   document.getElementById('new-event-name').value = '';
   document.getElementById('new-event-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('create-event-error').style.display = 'none';
   openModal('modal-create');
+  setTimeout(() => document.getElementById('new-event-name').focus(), 50);
 }
 
 // Close modals on overlay click

@@ -267,6 +267,11 @@
 </div>
 
 <script>
+window.onerror = function(msg, src, line, col, err) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="position:fixed;top:0;left:0;right:0;background:#f85149;color:#fff;padding:12px;z-index:9999;font-size:13px;">' +
+    '⚠ JS Error: ' + msg + ' (line ' + line + ')</div>');
+};
 // ============================================================
 // STORAGE
 // ============================================================
@@ -419,7 +424,8 @@ function generateRound(event) {
 // ============================================================
 // EVENT MANAGEMENT
 // ============================================================
-function createEvent() {
+function createEvent() { try { _createEvent(); } catch(e) { document.getElementById('create-event-error').textContent = 'Error: ' + e.message; document.getElementById('create-event-error').style.display = 'block'; } }
+function _createEvent() {
   const errEl = document.getElementById('create-event-error');
   const name = document.getElementById('new-event-name').value.trim();
   if (!name) {

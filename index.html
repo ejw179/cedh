@@ -163,22 +163,20 @@
   </div>
   <div id="events-list"></div>
 
-  <div style="margin-top:40px;">
-    <h2 style="margin-bottom:4px;">We consulted for snacks. Help us resolve it.</h2>
-    <p class="text-muted" style="margin-bottom:20px;font-size:13px;">Donations keep the table stocked.</p>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;">
-      <a href="https://cash.app/$ejw1799" target="_blank" style="flex:1;min-width:140px;max-width:200px;text-decoration:none;">
-        <div class="card text-center" style="transition:border-color .15s;cursor:pointer;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:32px;margin-bottom:8px;">$</div>
-          <div style="font-weight:700;font-size:16px;color:var(--green);">Cash App</div>
-          <div class="text-muted" style="font-size:12px;margin-top:4px;">$ejw1799</div>
+  <div style="margin-top:48px;border:1px solid var(--border);border-radius:12px;padding:24px 20px;text-align:center;">
+    <h3 style="margin-bottom:4px;font-size:15px;">We consulted for snacks. Help us resolve it.</h3>
+    <p class="text-muted" style="margin-bottom:16px;font-size:12px;">Donations keep the table stocked.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <a href="https://cash.app/$ejw1799" target="_blank" style="text-decoration:none;">
+        <div class="card text-center" style="padding:12px 20px;transition:border-color .15s;cursor:pointer;min-width:120px;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-weight:700;font-size:14px;color:var(--green);">$ Cash App</div>
+          <div class="text-muted" style="font-size:11px;margin-top:2px;">$ejw1799</div>
         </div>
       </a>
-      <a href="https://venmo.com/u/ejw179" target="_blank" style="flex:1;min-width:140px;max-width:200px;text-decoration:none;">
-        <div class="card text-center" style="transition:border-color .15s;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:32px;margin-bottom:8px;">✌</div>
-          <div style="font-weight:700;font-size:16px;color:var(--accent);">Venmo</div>
-          <div class="text-muted" style="font-size:12px;margin-top:4px;">@ejw179</div>
+      <a href="https://venmo.com/u/ejw179" target="_blank" style="text-decoration:none;">
+        <div class="card text-center" style="padding:12px 20px;transition:border-color .15s;cursor:pointer;min-width:120px;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-weight:700;font-size:14px;color:var(--accent);">✌ Venmo</div>
+          <div class="text-muted" style="font-size:11px;margin-top:2px;">@ejw179</div>
         </div>
       </a>
     </div>
@@ -270,6 +268,42 @@
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
       <button class="btn-primary" onclick="submitNewEvent()">Create Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT EVENT SETTINGS MODAL -->
+<div class="modal-overlay" id="modal-edit-event">
+  <div class="modal">
+    <h2>Event Settings</h2>
+    <div id="edit-event-error" style="display:none;" class="alert alert-warn"></div>
+    <div class="form-group">
+      <label>Format</label>
+      <select id="edit-event-format">
+        <option value="swiss">Swiss Only</option>
+        <option value="swiss-top4">Swiss + Top 4</option>
+        <option value="swiss-topcut-top4">Swiss + Top Cut + Top 4</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Total Swiss Rounds</label>
+      <select id="edit-event-rounds">
+        <option value="3">3 Rounds</option>
+        <option value="4">4 Rounds</option>
+        <option value="5">5 Rounds</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Top Cut Size (if applicable)</label>
+      <select id="edit-event-topcut">
+        <option value="8">Top 8</option>
+        <option value="16">Top 16</option>
+      </select>
+    </div>
+    <div id="edit-event-warn" style="display:none;" class="alert alert-warn" style="margin-top:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-edit-event')">Cancel</button>
+      <button class="btn-primary" onclick="saveEventSettings()">Save</button>
     </div>
   </div>
 </div>
@@ -528,6 +562,7 @@ function renderTournament() {
       </div>
       <div class="gap">
         ${event.status === 'swiss' ? `<button class="btn-secondary" onclick="showPage('timer');initTimer(${event.rounds.length})">⏱ Timer</button>` : ''}
+        ${(event.status === 'registration' || event.status === 'swiss') ? `<button class="btn-secondary btn-sm" onclick="openEditEventModal()">⚙ Settings</button>` : ''}
         ${event.status !== 'complete' ? `<button class="btn-danger btn-sm" onclick="archiveEvent()">Archive</button>` : ''}
       </div>
     </div>
@@ -1250,6 +1285,47 @@ function openCreateModal() {
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
 });
+
+// ============================================================
+// EDIT EVENT SETTINGS
+// ============================================================
+function openEditEventModal() {
+  const event = getEvent(currentEventId);
+  document.getElementById('edit-event-format').value = event.format;
+  document.getElementById('edit-event-rounds').value = event.swissRounds;
+  document.getElementById('edit-event-topcut').value = event.topCutSize || 8;
+  document.getElementById('edit-event-warn').style.display = 'none';
+  document.getElementById('edit-event-error').style.display = 'none';
+
+  // Warn if rounds already played
+  if (event.rounds.length > 0) {
+    const warnEl = document.getElementById('edit-event-warn');
+    warnEl.textContent = `${event.rounds.length} round(s) already played. You can only increase total rounds, not decrease below rounds completed.`;
+    warnEl.style.display = 'block';
+  }
+  openModal('modal-edit-event');
+}
+
+function saveEventSettings() {
+  const event = getEvent(currentEventId);
+  const newFormat = document.getElementById('edit-event-format').value;
+  const newRounds = parseInt(document.getElementById('edit-event-rounds').value);
+  const newTopCut = parseInt(document.getElementById('edit-event-topcut').value);
+  const errEl = document.getElementById('edit-event-error');
+
+  if (newRounds < event.rounds.length) {
+    errEl.textContent = `Cannot reduce rounds below ${event.rounds.length} — that many rounds have already been played.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  event.format = newFormat;
+  event.swissRounds = newRounds;
+  event.topCutSize = newTopCut;
+  saveEvent(event);
+  closeModal('modal-edit-event');
+  renderTournament();
+}
 
 // ============================================================
 // INIT

@@ -266,6 +266,10 @@
         <option value="16">Top 16</option>
       </select>
     </div>
+    <div class="form-group">
+      <label>Registration Page Description (optional)</label>
+      <textarea id="new-event-desc" placeholder="e.g. Entry is free. Bring your best deck. Prizes for top 4." rows="3" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%;resize:vertical;"></textarea>
+    </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
       <button class="btn-primary" onclick="submitNewEvent()">Create Event</button>
@@ -301,7 +305,11 @@
         <option value="16">Top 16</option>
       </select>
     </div>
-    <div id="edit-event-warn" style="display:none;" class="alert alert-warn" style="margin-top:8px;"></div>
+    <div class="form-group">
+      <label>Registration Page Description (optional)</label>
+      <textarea id="edit-event-desc" rows="3" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%;resize:vertical;"></textarea>
+    </div>
+    <div id="edit-event-warn" style="display:none;" class="alert alert-warn"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-edit-event')">Cancel</button>
       <button class="btn-primary" onclick="saveEventSettings()">Save</button>
@@ -563,10 +571,11 @@ function _submitNewEvent() {
   const format = document.getElementById('new-event-format').value;
   const swissRounds = parseInt(document.getElementById('new-event-rounds').value);
   const topCutSize = parseInt(document.getElementById('new-event-topcut').value);
+  const description = document.getElementById('new-event-desc').value.trim();
 
   const newEvent = {
     id: Date.now().toString(),
-    name, date, format, swissRounds, topCutSize,
+    name, date, format, swissRounds, topCutSize, description,
     status: 'registration',
     players: [],
     rounds: [],
@@ -1362,6 +1371,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 function openCreateModal() {
   document.getElementById('new-event-name').value = '';
   document.getElementById('new-event-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('new-event-desc').value = '';
   document.getElementById('create-event-error').style.display = 'none';
   openModal('modal-create');
   setTimeout(() => document.getElementById('new-event-name').focus(), 50);
@@ -1441,6 +1451,7 @@ function renderRegisterView(event) {
       <div style="font-size:40px;margin-bottom:10px;">⚔</div>
       <h1 style="margin-bottom:6px;">${event.name}</h1>
       <p class="text-muted">${event.date} &nbsp;·&nbsp; ${formatStatus(event.status)}</p>
+      ${event.description ? `<p style="margin-top:12px;font-size:14px;line-height:1.6;color:var(--text);">${event.description}</p>` : ''}
     </div>
     ${open ? `
       <div class="card" style="margin-bottom:16px;">
@@ -1502,6 +1513,7 @@ function openEditEventModal() {
   document.getElementById('edit-event-format').value = event.format;
   document.getElementById('edit-event-rounds').value = event.swissRounds;
   document.getElementById('edit-event-topcut').value = event.topCutSize || 8;
+  document.getElementById('edit-event-desc').value = event.description || '';
   document.getElementById('edit-event-warn').style.display = 'none';
   document.getElementById('edit-event-error').style.display = 'none';
 
@@ -1519,6 +1531,7 @@ function saveEventSettings() {
   const newFormat = document.getElementById('edit-event-format').value;
   const newRounds = parseInt(document.getElementById('edit-event-rounds').value);
   const newTopCut = parseInt(document.getElementById('edit-event-topcut').value);
+  const newDesc = document.getElementById('edit-event-desc').value.trim();
   const errEl = document.getElementById('edit-event-error');
 
   if (newRounds < event.rounds.length) {
@@ -1530,6 +1543,7 @@ function saveEventSettings() {
   event.format = newFormat;
   event.swissRounds = newRounds;
   event.topCutSize = newTopCut;
+  event.description = newDesc;
   saveEvent(event);
   closeModal('modal-edit-event');
   renderTournament();

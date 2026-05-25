@@ -322,8 +322,8 @@
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore-compat.js"></script>
 <script>
 window.onerror = function(msg, src, line, col, err) {
   document.body.insertAdjacentHTML('afterbegin',
@@ -1301,12 +1301,22 @@ function renderArchive() {
     return `<div class="event-card" onclick="viewArchiveEvent('${ev.id}')">
       <div class="flex-between">
         <h3>${ev.name}</h3>
-        <span class="badge badge-purple">Archived</span>
+        <div class="gap-sm" onclick="event.stopPropagation()">
+          <span class="badge badge-purple">Archived</span>
+          <button class="btn-danger btn-sm" onclick="deleteArchivedEvent('${ev.id}')">Delete</button>
+        </div>
       </div>
       <p class="text-muted" style="margin-top:4px;">${ev.date} · ${ev.players.length} players · ${ev.swissRounds} rounds</p>
       ${winner ? `<p style="margin-top:8px;font-size:13px;">🏆 <strong>${winner.name}</strong> (${winner.points} pts)</p>` : ''}
     </div>`;
   }).join('');
+}
+
+function deleteArchivedEvent(id) {
+  if (!window.confirm('Permanently delete this event? This cannot be undone.')) return;
+  DB.save(d => { d.archive = d.archive.filter(e => e.id !== id); });
+  db.collection('archive').doc(id).delete().catch(console.error);
+  renderArchive();
 }
 
 function viewArchiveEvent(id) {

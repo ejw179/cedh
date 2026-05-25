@@ -217,7 +217,7 @@
     <div id="create-event-error" style="display:none;" class="alert alert-warn"></div>
     <div class="form-group">
       <label>Event Name</label>
-      <input type="text" id="new-event-name" placeholder="e.g. Tuesday Night cEDH" onkeydown="if(event.key==='Enter')createEvent()">
+      <input type="text" id="new-event-name" placeholder="e.g. Tuesday Night cEDH" onkeydown="if(event.key==='Enter')submitNewEvent()">
     </div>
     <div class="form-group">
       <label>Date</label>
@@ -248,7 +248,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
-      <button class="btn-primary" onclick="createEvent()">Create Event</button>
+      <button class="btn-primary" onclick="submitNewEvent()">Create Event</button>
     </div>
   </div>
 </div>
@@ -424,8 +424,8 @@ function generateRound(event) {
 // ============================================================
 // EVENT MANAGEMENT
 // ============================================================
-function createEvent() { try { _createEvent(); } catch(e) { document.getElementById('create-event-error').textContent = 'Error: ' + e.message; document.getElementById('create-event-error').style.display = 'block'; } }
-function _createEvent() {
+function submitNewEvent() { try { _submitNewEvent(); } catch(e) { document.getElementById('create-event-error').textContent = 'Error: ' + e.message; document.getElementById('create-event-error').style.display = 'block'; } }
+function _submitNewEvent() {
   const errEl = document.getElementById('create-event-error');
   const name = document.getElementById('new-event-name').value.trim();
   if (!name) {

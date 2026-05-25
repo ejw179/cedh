@@ -153,6 +153,11 @@
   <span class="logo">⚔ cEDH TM</span>
   <span class="nav-link active" onclick="showPage('home')">Events</span>
   <span class="nav-link" onclick="showPage('archive')">Archive</span>
+  <span style="margin-left:auto;display:flex;gap:8px;">
+    <span class="nav-link" onclick="exportData()" title="Export all data to a backup file" style="font-size:12px;">⬇ Export</span>
+    <label class="nav-link" for="import-file" title="Import from backup file" style="font-size:12px;cursor:pointer;">⬆ Import</label>
+    <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)">
+  </span>
 </nav>
 
 <!-- HOME: Events List -->
@@ -330,9 +335,27 @@ window.onerror = function(msg, src, line, col, err) {
 // ============================================================
 // STORAGE
 // ============================================================
+// Test localStorage availability once on load
+let _storageOk = false;
+try {
+  localStorage.setItem('_cedh_test', '1');
+  _storageOk = localStorage.getItem('_cedh_test') === '1';
+  localStorage.removeItem('_cedh_test');
+} catch(e) { _storageOk = false; }
+
 const DB = {
-  get: () => JSON.parse(localStorage.getItem('cedh_tm') || '{"events":[],"archive":[]}'),
-  set: d => localStorage.setItem('cedh_tm', JSON.stringify(d)),
+  get() {
+    try {
+      return JSON.parse(localStorage.getItem('cedh_tm') || '{"events":[],"archive":[]}');
+    } catch(e) { return { events: [], archive: [] }; }
+  },
+  set(d) {
+    try {
+      localStorage.setItem('cedh_tm', JSON.stringify(d));
+    } catch(e) {
+      console.error('localStorage write failed:', e);
+    }
+  },
   save(fn) { const d = this.get(); fn(d); this.set(d); }
 };
 
@@ -1287,6 +1310,37 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 
 // ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportData() {
+  const d = DB.get();
+  const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cedh-tm-backup-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (!d.events || !d.archive) throw new Error('Invalid backup file.');
+      DB.set(d);
+      e.target.value = '';
+      showPage('home');
+    } catch(err) {
+      alert('Import failed: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
 // EDIT EVENT SETTINGS
 // ============================================================
 function openEditEventModal() {
@@ -1331,6 +1385,14 @@ function saveEventSettings() {
 // INIT
 // ============================================================
 renderEventsList();
+
+if (!_storageOk) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="background:var(--red);color:#fff;padding:10px 16px;font-size:13px;text-align:center;">' +
+    '⚠ Your browser is blocking local storage — events will not be saved between sessions. ' +
+    'Check your browser\'s privacy settings (disable "Clear data on close" or allow cookies for this site).' +
+    '</div>');
+}
 </script>
 </body>
 </html>

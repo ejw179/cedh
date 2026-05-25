@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cEDH Tournament Manager</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --purple: #bc8cff;
+    --gold: #ffd700;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+  a { color: var(--accent); text-decoration: none; }
+  button { cursor: pointer; border: none; border-radius: 6px; font-size: 14px; padding: 8px 16px; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #000; font-weight: 600; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--red); color: #fff; font-weight: 600; }
+  .btn-success { background: var(--green); color: #000; font-weight: 600; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  input, select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 12px; font-size: 14px; width: 100%; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .form-group { margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(63,185,80,.2); color: var(--green); }
+  .badge-blue { background: rgba(88,166,255,.2); color: var(--accent); }
+  .badge-yellow { background: rgba(210,153,34,.2); color: var(--yellow); }
+  .badge-red { background: rgba(248,81,73,.2); color: var(--red); }
+  .badge-purple { background: rgba(188,140,255,.2); color: var(--purple); }
+  h1 { font-size: 24px; font-weight: 700; }
+  h2 { font-size: 18px; font-weight: 600; }
+  h3 { font-size: 15px; font-weight: 600; }
+  .gap { display: flex; gap: 10px; }
+  .gap-sm { display: flex; gap: 6px; }
+  .mt { margin-top: 16px; }
+  .mt-sm { margin-top: 8px; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .text-muted { color: var(--text-muted); font-size: 13px; }
+  .text-center { text-align: center; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 56px; position: sticky; top: 0; z-index: 10; }
+  nav .logo { font-weight: 700; font-size: 16px; color: var(--accent); }
+  nav .nav-link { color: var(--text-muted); font-size: 14px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  nav .nav-link:hover, nav .nav-link.active { color: var(--text); background: var(--surface2); }
+
+  /* PAGES */
+  .page { display: none; padding: 24px; max-width: 960px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* EVENTS LIST */
+  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: border-color .15s; }
+  .event-card:hover { border-color: var(--accent); }
+  .event-card h3 { margin-bottom: 4px; }
+
+  /* POD DISPLAY */
+  .pod { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .pod-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .pod-players { list-style: none; }
+  .pod-players li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+  .pod-players li:last-child { border-bottom: none; }
+  .pod-result-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .result-btn { padding: 3px 10px; font-size: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all .15s; }
+  .result-btn.win { background: var(--green); color: #000; border-color: var(--green); font-weight: 600; }
+  .result-btn.draw { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 600; }
+  .result-btn.bye-indicator { background: var(--purple); color: #000; border-color: var(--purple); font-weight: 600; }
+
+  /* STANDINGS */
+  .standings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .standings-table th { text-align: left; padding: 8px 12px; color: var(--text-muted); font-size: 12px; border-bottom: 1px solid var(--border); }
+  .standings-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .standings-table tr:last-child td { border-bottom: none; }
+  .standings-table tr.top-cut { background: rgba(88,166,255,.06); }
+  .rank-1 { color: var(--gold); font-weight: 700; }
+  .rank-2 { color: #c0c0c0; font-weight: 600; }
+  .rank-3 { color: #cd7f32; font-weight: 600; }
+
+  /* TIMER */
+  #timer-page { max-width: 100%; }
+  .timer-display { font-size: 96px; font-weight: 700; text-align: center; letter-spacing: -2px; font-variant-numeric: tabular-nums; margin: 40px 0 20px; transition: color .3s; }
+  .timer-display.warning-30 { color: var(--yellow); }
+  .timer-display.warning-15 { color: var(--yellow); }
+  .timer-display.warning-5 { color: var(--red); }
+  .timer-display.warning-1 { color: var(--red); animation: pulse 1s infinite; }
+  .timer-display.expired { color: var(--red); animation: pulse .5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+  .timer-controls { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .timer-config { display: flex; gap: 12px; align-items: flex-end; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .timer-config .form-group { margin-bottom: 0; width: 120px; }
+  .round-label { text-align: center; font-size: 20px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+  .tv-btn { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
+
+  /* TV MODE */
+  #tv-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+  #tv-overlay.active { display: flex; }
+  #tv-overlay .tv-round { font-size: 28px; color: var(--text-muted); margin-bottom: 16px; }
+  #tv-overlay .tv-time { font-size: 200px; font-weight: 800; letter-spacing: -6px; font-variant-numeric: tabular-nums; transition: color .3s; }
+  #tv-overlay .tv-event { font-size: 20px; color: var(--text-muted); margin-top: 24px; }
+  #tv-overlay .tv-exit { position: absolute; top: 20px; right: 24px; font-size: 14px; color: var(--text-muted); cursor: pointer; }
+  .tv-warning-30, .tv-warning-15 { color: var(--yellow) !important; }
+  .tv-warning-5, .tv-warning-1 { color: var(--red) !important; }
+  .tv-expired { color: var(--red) !important; animation: pulse .5s infinite; }
+
+  /* TOP CUT */
+  .topcut-bracket { display: grid; gap: 16px; }
+  .match-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 500; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { margin-bottom: 16px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 8px 16px; cursor: pointer; font-size: 14px; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* MISC */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+  .empty-state svg { display: block; margin: 0 auto 16px; opacity: .3; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .pill-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .pill-remove { cursor: pointer; color: var(--text-muted); font-size: 16px; line-height: 1; }
+  .pill-remove:hover { color: var(--red); }
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .alert-info { background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.3); color: var(--accent); }
+  .alert-warn { background: rgba(210,153,34,.1); border: 1px solid rgba(210,153,34,.3); color: var(--yellow); }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">⚔ cEDH TM</span>
+  <span class="nav-link active" onclick="showPage('home')">Events</span>
+  <span class="nav-link" onclick="showPage('archive')">Archive</span>
+</nav>
+
+<!-- HOME: Events List -->
+<div class="page active" id="page-home">
+  <div class="section-header">
+    <h1>Events</h1>
+    <button class="btn-primary" onclick="openCreateModal()">+ New Event</button>
+  </div>
+  <div id="events-list"></div>
+</div>
+
+<!-- TOURNAMENT: Active event -->
+<div class="page" id="page-tournament">
+  <div id="tournament-content"></div>
+</div>
+
+<!-- TIMER PAGE -->
+<div class="page" id="page-timer" style="max-width:100%;">
+  <div style="max-width:700px;margin:0 auto;">
+    <div class="flex-between" style="margin-bottom:20px;">
+      <h1>Round Timer</h1>
+      <button class="btn-secondary" onclick="goBackToTournament()">← Back to Tournament</button>
+    </div>
+    <div class="round-label" id="timer-round-label">Round 1</div>
+    <div class="timer-display" id="timer-display">60:00</div>
+    <div class="timer-controls">
+      <button class="btn-success" id="timer-start-btn" onclick="timerStart()">Start</button>
+      <button class="btn-secondary" onclick="timerPause()" id="timer-pause-btn" disabled>Pause</button>
+      <button class="btn-secondary" onclick="timerReset()">Reset</button>
+    </div>
+    <div class="timer-config">
+      <div class="form-group">
+        <label>Minutes</label>
+        <input type="number" id="timer-minutes" value="60" min="1" max="180" onchange="timerReset()">
+      </div>
+    </div>
+    <div class="card text-center" style="margin-top:8px;">
+      <p class="text-muted" style="font-size:13px;">Warnings: 30 min · 15 min · 5 min · 1 min</p>
+    </div>
+  </div>
+  <button class="btn-secondary tv-btn" onclick="openTV()">📺 TV Mode</button>
+</div>
+
+<!-- ARCHIVE PAGE -->
+<div class="page" id="page-archive">
+  <h1 style="margin-bottom:20px;">Event Archive</h1>
+  <div id="archive-list"></div>
+</div>
+
+<!-- TV OVERLAY -->
+<div id="tv-overlay">
+  <span class="tv-exit" onclick="closeTV()">✕ Exit TV Mode</span>
+  <div class="tv-round" id="tv-round-label">Round 1</div>
+  <div class="tv-time" id="tv-time-display">60:00</div>
+  <div class="tv-event" id="tv-event-name"></div>
+</div>
+
+<!-- CREATE EVENT MODAL -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <h2>New Event</h2>
+    <div class="form-group">
+      <label>Event Name</label>
+      <input type="text" id="new-event-name" placeholder="e.g. Tuesday Night cEDH">
+    </div>
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" id="new-event-date">
+    </div>
+    <div class="form-group">
+      <label>Format</label>
+      <select id="new-event-format">
+        <option value="swiss">Swiss Only</option>
+        <option value="swiss-top4">Swiss + Top 4</option>
+        <option value="swiss-topcut-top4">Swiss + Top Cut + Top 4</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Number of Swiss Rounds</label>
+      <select id="new-event-rounds">
+        <option value="3">3 Rounds</option>
+        <option value="4" selected>4 Rounds</option>
+        <option value="5">5 Rounds</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Top Cut Size (if applicable)</label>
+      <select id="new-event-topcut">
+        <option value="8">Top 8</option>
+        <option value="16">Top 16</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
+      <button class="btn-primary" onclick="createEvent()">Create Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCORE ENTRY MODAL -->
+<div class="modal-overlay" id="modal-score">
+  <div class="modal">
+    <h2 id="score-modal-title">Enter Pod Results</h2>
+    <div id="score-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-score')">Cancel</button>
+      <button class="btn-primary" onclick="saveScore()">Save Results</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STORAGE
+// ============================================================
+const DB = {
+  get: () => JSON.parse(localStorage.getItem('cedh_tm') || '{"events":[],"archive":[]}'),
+  set: d => localStorage.setItem('cedh_tm', JSON.stringify(d)),
+  save(fn) { const d = this.get(); fn(d); this.set(d); }
+};
+
+// ============================================================
+// ROUTER
+// ============================================================
+let currentEventId = null;
+let currentTab = 'pods';
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const nl = [...document.querySelectorAll('.nav-link')].find(n => n.textContent.toLowerCase().includes(name === 'home' ? 'event' : name));
+  if (nl) nl.classList.add('active');
+  if (name === 'home') renderEventsList();
+  if (name === 'archive') renderArchive();
+}
+
+function openTournament(id) {
+  currentEventId = id;
+  currentTab = 'pods';
+  showPage('tournament');
+  renderTournament();
+}
+
+function goBackToTournament() {
+  timerPause();
+  showPage('tournament');
+  renderTournament();
+}
+
+// ============================================================
+// POD MATH
+// ============================================================
+function buildPods(players) {
+  const n = players.length;
+  const pods = [];
+  let rem = [...players];
+  const r = n % 4;
+  if (r === 0) {
+    // all 4s
+    while (rem.length) pods.push(rem.splice(0, 4));
+  } else if (r === 3) {
+    // all 4s + one 3
+    const three = rem.splice(0, 3);
+    pods.push(three);
+    while (rem.length) pods.push(rem.splice(0, 4));
+  } else if (r === 2) {
+    // two 3s + rest 4s
+    pods.push(rem.splice(0, 3));
+    pods.push(rem.splice(0, 3));
+    while (rem.length) pods.push(rem.splice(0, 4));
+  } else {
+    // r === 1
+    if (n === 5) {
+      pods.push(rem.splice(0, 5));
+    } else if (n >= 9) {
+      // three 3s + rest 4s
+      pods.push(rem.splice(0, 3));
+      pods.push(rem.splice(0, 3));
+      pods.push(rem.splice(0, 3));
+      while (rem.length) pods.push(rem.splice(0, 4));
+    } else {
+      // n=1? fallback
+      pods.push(rem);
+    }
+  }
+  return pods;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Seed pods by points. Players sorted desc by points.
+// Group similar-point players together, avoid repeat pod-mates.
+function seedPods(players, history) {
+  // Sort descending by points, then by wins as tiebreak
+  const sorted = [...players].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.wins - a.wins;
+  });
+  const n = sorted.length;
+  const r = n % 4;
+
+  // Determine pod sizes (same as buildPods logic)
+  let sizes = [];
+  if (r === 0) sizes = Array(n / 4).fill(4);
+  else if (r === 3) sizes = [3, ...Array((n - 3) / 4).fill(4)];
+  else if (r === 2) sizes = [3, 3, ...Array((n - 6) / 4).fill(4)];
+  else if (r === 1) {
+    if (n === 5) sizes = [5];
+    else sizes = [3, 3, 3, ...Array((n - 9) / 4).fill(4)];
+  }
+
+  // Assign players to pods in order (top players fill top pods)
+  const pods = [];
+  let idx = 0;
+  for (const size of sizes) {
+    pods.push(sorted.slice(idx, idx + size));
+    idx += size;
+  }
+  return pods;
+}
+
+function generateRound(event) {
+  const roundNum = event.rounds.length + 1;
+  const players = event.players;
+
+  if (roundNum === 1) {
+    const shuffled = shuffle(players);
+    const podArrays = buildPods(shuffled);
+    return podArrays.map((p, i) => ({
+      id: i,
+      players: p.map(pl => pl.id),
+      result: null
+    }));
+  } else {
+    // Get history of who played with whom
+    const history = {};
+    for (const round of event.rounds) {
+      for (const pod of round.pods) {
+        for (const pid of pod.players) {
+          if (!history[pid]) history[pid] = [];
+          history[pid].push(...pod.players.filter(x => x !== pid));
+        }
+      }
+    }
+    const podArrays = seedPods(players, history);
+    return podArrays.map((p, i) => ({
+      id: i,
+      players: p.map(pl => pl.id),
+      result: null
+    }));
+  }
+}
+
+// ============================================================
+// EVENT MANAGEMENT
+// ============================================================
+function createEvent() {
+  const name = document.getElementById('new-event-name').value.trim();
+  if (!name) { alert('Please enter an event name.'); return; }
+  const date = document.getElementById('new-event-date').value || new Date().toISOString().split('T')[0];
+  const format = document.getElementById('new-event-format').value;
+  const swissRounds = parseInt(document.getElementById('new-event-rounds').value);
+  const topCutSize = parseInt(document.getElementById('new-event-topcut').value);
+
+  const event = {
+    id: Date.now().toString(),
+    name, date, format, swissRounds, topCutSize,
+    status: 'registration', // registration | swiss | topcut | final | complete
+    players: [],
+    rounds: [],
+    topCut: null,
+    createdAt: Date.now()
+  };
+  DB.save(d => d.events.push(event));
+  closeModal('modal-create');
+  openTournament(event.id);
+}
+
+function getEvent(id) {
+  const d = DB.get();
+  return d.events.find(e => e.id === id) || d.archive.find(e => e.id === id);
+}
+
+function saveEvent(event) {
+  DB.save(d => {
+    const i = d.events.findIndex(e => e.id === event.id);
+    if (i >= 0) d.events[i] = event;
+  });
+}
+
+// ============================================================
+// SCORING
+// ============================================================
+const POINTS = { win: 5, draw: 1, loss: 0, bye: 5 };
+
+function applyResults(event, roundIdx, podIdx, results) {
+  // results: { playerId: 'win'|'draw'|'loss'|'bye' }
+  const pod = event.rounds[roundIdx].pods[podIdx];
+  pod.result = results;
+
+  for (const [pid, outcome] of Object.entries(results)) {
+    const player = event.players.find(p => p.id === pid);
+    if (!player) continue;
+    player.points = (player.points || 0) + POINTS[outcome];
+    if (outcome === 'win' || outcome === 'bye') player.wins = (player.wins || 0) + 1;
+    if (outcome === 'draw') player.draws = (player.draws || 0) + 1;
+  }
+  saveEvent(event);
+}
+
+// ============================================================
+// RENDER TOURNAMENT
+// ============================================================
+function renderTournament() {
+  const event = getEvent(currentEventId);
+  if (!event) return;
+
+  const el = document.getElementById('tournament-content');
+
+  // Determine active tab options
+  const tabs = ['pods', 'standings'];
+  if (event.status === 'complete' || event.status === 'topcut' || event.status === 'final') tabs.push('bracket');
+
+  let html = `
+    <div class="flex-between" style="margin-bottom:20px;">
+      <div>
+        <h1>${event.name}</h1>
+        <span class="text-muted">${event.date} &nbsp;·&nbsp; ${formatStatus(event.status)} &nbsp;·&nbsp; ${event.players.length} players</span>
+      </div>
+      <div class="gap">
+        ${event.status === 'swiss' ? `<button class="btn-secondary" onclick="showPage('timer');initTimer(${event.rounds.length})">⏱ Timer</button>` : ''}
+        ${event.status !== 'complete' ? `<button class="btn-danger btn-sm" onclick="archiveEvent()">Archive</button>` : ''}
+      </div>
+    </div>
+    <div class="tabs">
+      ${tabs.map(t => `<div class="tab ${currentTab===t?'active':''}" onclick="switchTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</div>`).join('')}
+    </div>
+    <div id="tab-content"></div>
+  `;
+  el.innerHTML = html;
+
+  renderTab(event);
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  const event = getEvent(currentEventId);
+  renderTab(event);
+  // Update active tab
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.textContent.toLowerCase() === tab);
+  });
+}
+
+function renderTab(event) {
+  const el = document.getElementById('tab-content');
+  if (currentTab === 'pods') el.innerHTML = renderPodsTab(event);
+  if (currentTab === 'standings') el.innerHTML = renderStandingsTab(event);
+  if (currentTab === 'bracket') el.innerHTML = renderBracketTab(event);
+}
+
+function formatStatus(s) {
+  return { registration:'Registration', swiss:'Swiss', topcut:'Top Cut', final:'Finals', complete:'Complete' }[s] || s;
+}
+
+// ============================================================
+// PODS TAB
+// ============================================================
+function renderPodsTab(event) {
+  if (event.status === 'registration') return renderRegistration(event);
+  if (event.status === 'swiss') return renderSwiss(event);
+  if (event.status === 'topcut') return renderTopCutPhase(event);
+  if (event.status === 'final') return renderFinalPhase(event);
+  if (event.status === 'complete') return renderComplete(event);
+  return '';
+}
+
+function renderRegistration(event) {
+  const players = event.players;
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <h2 style="margin-bottom:16px;">Player Registration</h2>
+      <div class="gap" style="margin-bottom:16px;">
+        <input type="text" id="player-name-input" placeholder="First name" style="max-width:300px;" onkeydown="if(event.key==='Enter')addPlayer()">
+        <button class="btn-primary" onclick="addPlayer()">Add Player</button>
+      </div>
+      <div class="pill-list" id="player-pills">
+        ${players.map(p => `
+          <div class="pill">
+            ${p.name}
+            <span class="pill-remove" onclick="removePlayer('${p.id}')">×</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${players.length >= 4 ? `
+      <div class="alert alert-info">
+        ${players.length} players registered · ${describePodsFor(players.length)}
+      </div>
+      <button class="btn-success" onclick="startTournament()" style="width:100%;padding:12px;font-size:16px;">
+        Start Tournament (${players.length} players)
+      </button>
+    ` : `<div class="alert alert-warn">Need at least 4 players to start.</div>`}
+  `;
+}
+
+function describePodsFor(n) {
+  const pods = buildPods(Array(n).fill(null).map((_, i) => ({ id: i })));
+  const counts = pods.map(p => p.length);
+  const fours = counts.filter(x => x === 4).length;
+  const threes = counts.filter(x => x === 3).length;
+  const fives = counts.filter(x => x === 5).length;
+  let parts = [];
+  if (fours) parts.push(`${fours}×4`);
+  if (threes) parts.push(`${threes}×3`);
+  if (fives) parts.push(`${fives}×5`);
+  return parts.join(' + ') + ' pods';
+}
+
+function addPlayer() {
+  const input = document.getElementById('player-name-input');
+  const name = input.value.trim();
+  if (!name) return;
+  const event = getEvent(currentEventId);
+  if (event.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+    alert('Player already added.'); return;
+  }
+  event.players.push({ id: Date.now().toString(), name, points: 0, wins: 0, draws: 0 });
+  saveEvent(event);
+  input.value = '';
+  renderTournament();
+}
+
+function removePlayer(pid) {
+  const event = getEvent(currentEventId);
+  event.players = event.players.filter(p => p.id !== pid);
+  saveEvent(event);
+  renderTournament();
+}
+
+function startTournament() {
+  const event = getEvent(currentEventId);
+  event.status = 'swiss';
+  const pods = generateRound(event);
+  event.rounds.push({ roundNum: 1, pods, complete: false });
+  saveEvent(event);
+  renderTournament();
+}
+
+function renderSwiss(event) {
+  const roundIdx = event.rounds.length - 1;
+  const round = event.rounds[roundIdx];
+  const allScored = round.pods.every(p => p.result !== null);
+
+  let html = `
+    <div class="flex-between" style="margin-bottom:16px;">
+      <h2>Round ${round.roundNum} of ${event.swissRounds}</h2>
+      <div class="gap">
+        ${allScored && !round.complete ? `<button class="btn-success" onclick="nextRound()">Next Round →</button>` : ''}
+      </div>
+    </div>
+  `;
+
+  round.pods.forEach((pod, pi) => {
+    const players = pod.players.map(id => event.players.find(p => p.id === id));
+    const isBye = pod.players.length === 1;
+    html += `<div class="pod">
+      <div class="pod-header">
+        <h3>Pod ${pi + 1} ${pod.players.length === 3 ? '<span class="badge badge-yellow">3-player</span>' : ''} ${pod.players.length === 5 ? '<span class="badge badge-purple">5-player</span>' : ''}</h3>
+        ${!pod.result ? `<button class="btn-primary btn-sm" onclick="openScoreModal(${roundIdx},${pi})">Enter Results</button>` : `<span class="badge badge-green">✓ Scored</span>`}
+      </div>
+      <ul class="pod-players">
+        ${players.map(p => `
+          <li>
+            <span>${p.name}</span>
+            ${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase() || ''}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts</span>`}
+          </li>
+        `).join('')}
+      </ul>
+    </div>`;
+  });
+
+  return html;
+}
+
+function resultBadgeClass(r) {
+  return { win:'badge-green', draw:'badge-yellow', loss:'badge-red', bye:'badge-purple' }[r] || '';
+}
+
+function nextRound() {
+  const event = getEvent(currentEventId);
+  const roundIdx = event.rounds.length - 1;
+  event.rounds[roundIdx].complete = true;
+
+  const isLastSwiss = event.rounds.length >= event.swissRounds;
+
+  if (isLastSwiss) {
+    // Determine next phase
+    if (event.format === 'swiss') {
+      event.status = 'complete';
+    } else if (event.format === 'swiss-top4') {
+      event.status = 'final';
+      event.topCut = buildFinalPod(event);
+    } else if (event.format === 'swiss-topcut-top4') {
+      event.status = 'topcut';
+      event.topCut = buildTopCut(event);
+    }
+  } else {
+    const pods = generateRound(event);
+    event.rounds.push({ roundNum: event.rounds.length + 1, pods, complete: false });
+  }
+
+  saveEvent(event);
+  renderTournament();
+}
+
+// ============================================================
+// SCORE MODAL
+// ============================================================
+let scorePodContext = null;
+
+function openScoreModal(roundIdx, podIdx) {
+  const event = getEvent(currentEventId);
+  const pod = event.rounds[roundIdx].pods[podIdx];
+  const players = pod.players.map(id => event.players.find(p => p.id === id));
+  scorePodContext = { roundIdx, podIdx };
+
+  document.getElementById('score-modal-title').textContent = `Pod ${podIdx + 1} Results`;
+
+  const isBye = players.length === 1;
+  if (isBye) {
+    document.getElementById('score-modal-body').innerHTML = `
+      <p>${players[0].name} receives a <strong>BYE</strong> (5 points).</p>
+    `;
+    scorePodContext.byeOnly = true;
+    scorePodContext.byePlayerId = players[0].id;
+  } else {
+    let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Select one winner, or mark all as Draw.</p>`;
+    body += `<ul class="pod-players" id="score-player-list">`;
+    players.forEach(p => {
+      body += `
+        <li>
+          <span style="font-weight:500;">${p.name}</span>
+          <div class="pod-result-btns">
+            <button class="result-btn" id="rb-win-${p.id}" onclick="selectResult('${p.id}','win',${players.length})"  >Win</button>
+            <button class="result-btn" id="rb-draw-${p.id}" onclick="selectResult('${p.id}','draw',${players.length})">Draw</button>
+            <button class="result-btn" id="rb-loss-${p.id}" onclick="selectResult('${p.id}','loss',${players.length})">Loss</button>
+          </div>
+        </li>`;
+    });
+    body += `</ul>`;
+    body += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw(${JSON.stringify(players.map(p=>p.id))})">Mark All as Draw</button>`;
+    document.getElementById('score-modal-body').innerHTML = body;
+    scorePodContext.playerIds = players.map(p => p.id);
+    scorePodContext.results = {};
+  }
+
+  openModal('modal-score');
+}
+
+function selectResult(playerId, outcome, total) {
+  if (!scorePodContext.results) scorePodContext.results = {};
+
+  if (outcome === 'win') {
+    // Only one winner — set others to loss
+    scorePodContext.playerIds.forEach(pid => {
+      scorePodContext.results[pid] = pid === playerId ? 'win' : 'loss';
+    });
+    // Update UI
+    scorePodContext.playerIds.forEach(pid => {
+      ['win','draw','loss'].forEach(r => {
+        const btn = document.getElementById(`rb-${r}-${pid}`);
+        if (btn) btn.classList.remove(r === 'draw' ? 'draw' : r === 'win' ? 'win' : '');
+      });
+      const targetOutcome = pid === playerId ? 'win' : 'loss';
+      const btn = document.getElementById(`rb-${targetOutcome}-${pid}`);
+      if (btn) { btn.classList.add(targetOutcome === 'win' ? 'win' : ''); }
+    });
+  } else if (outcome === 'draw') {
+    scorePodContext.results[playerId] = 'draw';
+    ['win','loss'].forEach(r => { const b = document.getElementById(`rb-${r}-${playerId}`); if(b) b.classList.remove('win'); });
+    document.getElementById(`rb-draw-${playerId}`)?.classList.add('draw');
+  } else {
+    scorePodContext.results[playerId] = 'loss';
+    ['win','draw'].forEach(r => { const b = document.getElementById(`rb-${r}-${playerId}`); if(b) b.classList.remove(r==='win'?'win':'draw'); });
+  }
+}
+
+function selectAllDraw(playerIds) {
+  if (!scorePodContext.results) scorePodContext.results = {};
+  playerIds.forEach(pid => {
+    scorePodContext.results[pid] = 'draw';
+    ['win','loss'].forEach(r => document.getElementById(`rb-${r}-${pid}`)?.classList.remove('win'));
+    document.getElementById(`rb-draw-${pid}`)?.classList.add('draw');
+  });
+}
+
+function saveSwissScore() {
+  const event = getEvent(currentEventId);
+  const { roundIdx, podIdx } = scorePodContext;
+
+  let results;
+  if (scorePodContext.byeOnly) {
+    results = { [scorePodContext.byePlayerId]: 'bye' };
+  } else {
+    results = scorePodContext.results || {};
+    const pids = scorePodContext.playerIds;
+    if (pids.some(pid => !results[pid])) {
+      alert('Please assign a result to every player.'); return;
+    }
+    const outcomes = pids.map(pid => results[pid]);
+    const winCount = outcomes.filter(o => o === 'win').length;
+    const drawCount = outcomes.filter(o => o === 'draw').length;
+    if (winCount > 1) { alert('Only one player can win.'); return; }
+    if (winCount === 0 && drawCount !== pids.length) { alert('Either one player wins, or all players draw.'); return; }
+  }
+
+  applyResults(event, roundIdx, podIdx, results);
+  closeModal('modal-score');
+  renderTournament();
+}
+
+// ============================================================
+// TOP CUT
+// ============================================================
+function getStandings(event) {
+  return [...event.players].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.wins - a.wins;
+  });
+}
+
+function buildFinalPod(event) {
+  const top = getStandings(event).slice(0, 4);
+  return {
+    type: 'final',
+    pod: { players: top.map(p => p.id), result: null }
+  };
+}
+
+function buildTopCut(event) {
+  const size = event.topCutSize || 8;
+  const top = getStandings(event).slice(0, size);
+  // Build pods from top cut players (seeded)
+  const podArrays = seedPods(top, {});
+  return {
+    type: 'topcut',
+    pods: podArrays.map((p, i) => ({ id: i, players: p.map(pl => pl.id), result: null })),
+    final: null
+  };
+}
+
+function renderTopCutPhase(event) {
+  const tc = event.topCut;
+  const allScored = tc.pods.every(p => p.result !== null);
+  let html = `<div class="flex-between" style="margin-bottom:16px;">
+    <h2>Top Cut (${tc.pods.length * 4} players)</h2>
+    ${allScored ? `<button class="btn-success" onclick="advanceToFinal()">Advance to Finals →</button>` : ''}
+  </div>`;
+
+  tc.pods.forEach((pod, pi) => {
+    const players = pod.players.map(id => event.players.find(p => p.id === id));
+    html += `<div class="pod">
+      <div class="pod-header">
+        <h3>Pod ${pi + 1}</h3>
+        ${!pod.result ? `<button class="btn-primary btn-sm" onclick="openTopCutScoreModal('topcut',${pi})">Enter Results</button>` : `<span class="badge badge-green">✓ Scored</span>`}
+      </div>
+      <ul class="pod-players">
+        ${players.map(p => `<li><span>${p.name}</span>${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase()}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts</span>`}</li>`).join('')}
+      </ul>
+    </div>`;
+  });
+  return html;
+}
+
+function advanceToFinal() {
+  const event = getEvent(currentEventId);
+  // Winner of each top-cut pod advances to final (draw = first by standing)
+  const standings = getStandings(event);
+  const winners = event.topCut.pods.map(pod => {
+    const winner = Object.entries(pod.result).find(([pid, r]) => r === 'win');
+    if (winner) return winner[0];
+    // All drew — take the highest-standing player in the pod
+    const drawers = Object.keys(pod.result);
+    return standings.find(p => drawers.includes(p.id))?.id;
+  }).filter(Boolean).slice(0, 4);
+
+  // Fill to 4 if needed by standing
+  if (winners.length < 4) {
+    for (const p of standings) {
+      if (!winners.includes(p.id) && winners.length < 4) winners.push(p.id);
+    }
+  }
+
+  event.topCut.final = { players: winners, result: null };
+  event.status = 'final';
+  saveEvent(event);
+  renderTournament();
+}
+
+function renderFinalPhase(event) {
+  const finalPod = event.topCut?.pod || event.topCut?.final;
+  if (!finalPod) return '<p>Loading...</p>';
+  const players = finalPod.players.map(id => event.players.find(p => p.id === id));
+  return `
+    <div class="flex-between" style="margin-bottom:16px;">
+      <h2>🏆 Finals</h2>
+      ${finalPod.result ? `<button class="btn-success" onclick="completeEvent()">Complete Event</button>` : ''}
+    </div>
+    <div class="pod">
+      <div class="pod-header">
+        <h3>Final Pod</h3>
+        ${!finalPod.result ? `<button class="btn-primary btn-sm" onclick="openTopCutScoreModal('final',0)">Enter Results</button>` : `<span class="badge badge-green">✓ Scored</span>`}
+      </div>
+      <ul class="pod-players">
+        ${players.map(p => `<li><span>${p.name}</span>${finalPod.result ? `<span class="badge ${resultBadgeClass(finalPod.result[p.id])}">${finalPod.result[p.id]?.toUpperCase()}</span>` : `<span class="text-muted">${p.points} pts</span>`}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+function openTopCutScoreModal(phase, podIdx) {
+  const event = getEvent(currentEventId);
+  let pod;
+  if (phase === 'topcut') pod = event.topCut.pods[podIdx];
+  else pod = event.topCut.pod || event.topCut.final;
+
+  const players = pod.players.map(id => event.players.find(p => p.id === id));
+  scorePodContext = { phase, podIdx, playerIds: players.map(p => p.id), results: {} };
+
+  document.getElementById('score-modal-title').textContent = phase === 'final' ? '🏆 Final Pod Results' : `Top Cut Pod ${podIdx + 1} Results`;
+
+  let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Select one winner, or mark all as Draw.</p>
+    <ul class="pod-players" id="score-player-list">`;
+  players.forEach(p => {
+    body += `<li>
+      <span style="font-weight:500;">${p.name}</span>
+      <div class="pod-result-btns">
+        <button class="result-btn" id="rb-win-${p.id}" onclick="selectResult('${p.id}','win',${players.length})">Win</button>
+        <button class="result-btn" id="rb-draw-${p.id}" onclick="selectResult('${p.id}','draw',${players.length})">Draw</button>
+        <button class="result-btn" id="rb-loss-${p.id}" onclick="selectResult('${p.id}','loss',${players.length})">Loss</button>
+      </div>
+    </li>`;
+  });
+  body += `</ul><button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw(${JSON.stringify(players.map(p=>p.id))})">Mark All as Draw</button>`;
+  document.getElementById('score-modal-body').innerHTML = body;
+  scorePodContext.isTopCut = true;
+  openModal('modal-score');
+}
+
+function saveScore_topcut() {
+  // Called via saveScore when isTopCut flag set
+  const event = getEvent(currentEventId);
+  const { phase, podIdx, playerIds, results } = scorePodContext;
+
+  if (playerIds.some(pid => !results[pid])) { alert('Please assign a result to every player.'); return; }
+  const outcomes = playerIds.map(pid => results[pid]);
+  const winCount = outcomes.filter(o => o === 'win').length;
+  const drawCount = outcomes.filter(o => o === 'draw').length;
+  if (winCount > 1) { alert('Only one player can win.'); return; }
+  if (winCount === 0 && drawCount !== playerIds.length) { alert('Either one player wins, or all players draw.'); return; }
+
+  // Apply points
+  playerIds.forEach(pid => {
+    const player = event.players.find(p => p.id === pid);
+    if (!player) return;
+    const outcome = results[pid];
+    player.points += POINTS[outcome];
+    if (outcome === 'win') player.wins++;
+    if (outcome === 'draw') player.draws++;
+  });
+
+  if (phase === 'topcut') {
+    event.topCut.pods[podIdx].result = results;
+  } else {
+    const fp = event.topCut.pod || event.topCut.final;
+    fp.result = results;
+  }
+
+  saveEvent(event);
+  closeModal('modal-score');
+  renderTournament();
+}
+
+function saveScore() {
+  if (scorePodContext?.isTopCut) { saveScore_topcut(); return; }
+  saveSwissScore();
+}
+
+function completeEvent() {
+  const event = getEvent(currentEventId);
+  event.status = 'complete';
+  saveEvent(event);
+  renderTournament();
+}
+
+function renderComplete(event) {
+  return `<div class="card text-center" style="padding:40px;">
+    <div style="font-size:48px;margin-bottom:12px;">🏆</div>
+    <h2 style="margin-bottom:8px;">Tournament Complete!</h2>
+    <p class="text-muted">Check the Standings tab for final results.</p>
+    <button class="btn-secondary" style="margin-top:20px;" onclick="archiveEvent()">Archive Event</button>
+  </div>`;
+}
+
+function renderBracketTab(event) {
+  return `<div class="alert alert-info">Top cut bracket view — see Pods tab for active play.</div>`;
+}
+
+// ============================================================
+// STANDINGS
+// ============================================================
+function renderStandingsTab(event) {
+  const standings = getStandings(event);
+  const cutLine = event.format === 'swiss-top4' ? 4 : event.format === 'swiss-topcut-top4' ? (event.topCutSize || 8) : 0;
+
+  let html = `<table class="standings-table">
+    <thead><tr>
+      <th>#</th><th>Player</th><th>Points</th><th>Wins</th><th>Draws</th>
+    </tr></thead><tbody>`;
+
+  standings.forEach((p, i) => {
+    const rank = i + 1;
+    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+    const inCut = cutLine > 0 && rank <= cutLine;
+    html += `<tr class="${inCut ? 'top-cut' : ''}">
+      <td class="${rankClass}">${rank}</td>
+      <td style="font-weight:500;">${p.name} ${rank === 1 && event.status === 'complete' ? '👑' : ''}</td>
+      <td><strong>${p.points || 0}</strong></td>
+      <td>${p.wins || 0}</td>
+      <td>${p.draws || 0}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  if (cutLine > 0 && event.status === 'swiss') {
+    html += `<p class="text-muted mt-sm" style="font-size:12px;">Blue rows advance to ${event.format === 'swiss-top4' ? 'Finals' : 'Top Cut'} after swiss rounds.</p>`;
+  }
+  return html;
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+let timerInterval = null;
+let timerSeconds = 3600;
+let timerRunning = false;
+let timerWarned = {};
+
+function initTimer(roundNum) {
+  const mins = parseInt(document.getElementById('timer-minutes')?.value || 60);
+  timerSeconds = mins * 60;
+  timerWarned = {};
+  timerRunning = false;
+  document.getElementById('timer-round-label').textContent = `Round ${roundNum}`;
+  document.getElementById('tv-round-label').textContent = `Round ${roundNum}`;
+  const event = getEvent(currentEventId);
+  document.getElementById('tv-event-name').textContent = event?.name || '';
+  updateTimerDisplay();
+  document.getElementById('timer-start-btn').disabled = false;
+  document.getElementById('timer-pause-btn').disabled = true;
+}
+
+function timerStart() {
+  if (timerRunning) return;
+  timerRunning = true;
+  document.getElementById('timer-start-btn').disabled = true;
+  document.getElementById('timer-pause-btn').disabled = false;
+  timerInterval = setInterval(timerTick, 1000);
+}
+
+function timerPause() {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  document.getElementById('timer-start-btn').disabled = false;
+  document.getElementById('timer-pause-btn').disabled = true;
+}
+
+function timerReset() {
+  timerPause();
+  const mins = parseInt(document.getElementById('timer-minutes')?.value || 60);
+  timerSeconds = mins * 60;
+  timerWarned = {};
+  updateTimerDisplay();
+}
+
+function timerTick() {
+  if (timerSeconds > 0) timerSeconds--;
+  updateTimerDisplay();
+  checkWarnings();
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  const str = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const el = document.getElementById('timer-display');
+  const tvEl = document.getElementById('tv-time-display');
+  if (el) el.textContent = str;
+  if (tvEl) tvEl.textContent = str;
+
+  // Color states
+  const cls = timerSeconds <= 60 ? 'warning-1' : timerSeconds <= 300 ? 'warning-5' : timerSeconds <= 900 ? 'warning-15' : timerSeconds <= 1800 ? 'warning-30' : timerSeconds === 0 ? 'expired' : '';
+  if (el) { el.className = 'timer-display'; if (cls) el.classList.add(cls); }
+
+  const tvCls = timerSeconds <= 60 ? 'tv-warning-1' : timerSeconds <= 300 ? 'tv-warning-5' : timerSeconds <= 900 ? 'tv-warning-15' : timerSeconds <= 1800 ? 'tv-warning-30' : timerSeconds === 0 ? 'tv-expired' : '';
+  if (tvEl) { tvEl.className = 'tv-time'; if (tvCls) tvEl.classList.add(tvCls); }
+}
+
+function checkWarnings() {
+  const warnings = [{ s: 1800, label: '30 minutes' }, { s: 900, label: '15 minutes' }, { s: 300, label: '5 minutes' }, { s: 60, label: '1 minute' }];
+  for (const w of warnings) {
+    if (timerSeconds === w.s && !timerWarned[w.s]) {
+      timerWarned[w.s] = true;
+      // Flash notification in TV mode if active
+      flashTVWarning(w.label);
+    }
+  }
+  if (timerSeconds === 0 && !timerWarned[0]) {
+    timerWarned[0] = true;
+    timerPause();
+    flashTVWarning('TIME\'S UP!');
+  }
+}
+
+function flashTVWarning(label) {
+  const tv = document.getElementById('tv-overlay');
+  if (!tv?.classList.contains('active')) return;
+  const el = document.createElement('div');
+  el.textContent = `⚠ ${label} remaining`;
+  el.style.cssText = 'position:absolute;bottom:60px;font-size:32px;color:#d29922;animation:pulse 2s 3;';
+  tv.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
+function openTV() {
+  document.getElementById('tv-overlay').classList.add('active');
+  updateTimerDisplay();
+  document.documentElement.requestFullscreen?.();
+}
+
+function closeTV() {
+  document.getElementById('tv-overlay').classList.remove('active');
+  document.exitFullscreen?.();
+}
+
+// ============================================================
+// ARCHIVE
+// ============================================================
+function archiveEvent() {
+  if (!confirm('Archive this event? It will move to the archive and become read-only.')) return;
+  DB.save(d => {
+    const idx = d.events.findIndex(e => e.id === currentEventId);
+    if (idx >= 0) {
+      const [ev] = d.events.splice(idx, 1);
+      ev.archivedAt = Date.now();
+      ev.status = 'complete';
+      d.archive.push(ev);
+    }
+  });
+  showPage('home');
+}
+
+function renderArchive() {
+  const d = DB.get();
+  const el = document.getElementById('archive-list');
+  if (!d.archive.length) {
+    el.innerHTML = `<div class="empty-state"><p>No archived events yet.</p></div>`;
+    return;
+  }
+  el.innerHTML = d.archive.slice().reverse().map(ev => {
+    const standings = getStandings(ev);
+    const winner = standings[0];
+    return `<div class="event-card" onclick="viewArchiveEvent('${ev.id}')">
+      <div class="flex-between">
+        <h3>${ev.name}</h3>
+        <span class="badge badge-purple">Archived</span>
+      </div>
+      <p class="text-muted" style="margin-top:4px;">${ev.date} · ${ev.players.length} players · ${ev.swissRounds} rounds</p>
+      ${winner ? `<p style="margin-top:8px;font-size:13px;">🏆 <strong>${winner.name}</strong> (${winner.points} pts)</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function viewArchiveEvent(id) {
+  currentEventId = id;
+  currentTab = 'standings';
+  showPage('tournament');
+  renderTournament();
+}
+
+// ============================================================
+// EVENTS LIST
+// ============================================================
+function renderEventsList() {
+  const d = DB.get();
+  const el = document.getElementById('events-list');
+  if (!d.events.length) {
+    el.innerHTML = `<div class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <p>No active events. Create one to get started.</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = d.events.map(ev => {
+    const statusBadge = {
+      registration: 'badge-blue', swiss: 'badge-green',
+      topcut: 'badge-yellow', final: 'badge-yellow', complete: 'badge-purple'
+    }[ev.status] || 'badge-blue';
+    return `<div class="event-card" onclick="openTournament('${ev.id}')">
+      <div class="flex-between">
+        <h3>${ev.name}</h3>
+        <span class="badge ${statusBadge}">${formatStatus(ev.status)}</span>
+      </div>
+      <p class="text-muted" style="margin-top:4px;">${ev.date} · ${ev.players.length} players · ${ev.format}</p>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function openCreateModal() {
+  document.getElementById('new-event-name').value = '';
+  document.getElementById('new-event-date').value = new Date().toISOString().split('T')[0];
+  openModal('modal-create');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+});
+
+// ============================================================
+// INIT
+// ============================================================
+renderEventsList();
+</script>
+</body>
+</html>

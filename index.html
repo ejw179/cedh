@@ -746,15 +746,13 @@ function selectResult(playerId, outcome, total) {
     scorePodContext.playerIds.forEach(pid => {
       scorePodContext.results[pid] = pid === playerId ? 'win' : 'loss';
     });
-    // Update UI
+    // Update UI — clear all highlights then set win/loss
     scorePodContext.playerIds.forEach(pid => {
-      ['win','draw','loss'].forEach(r => {
-        const btn = document.getElementById(`rb-${r}-${pid}`);
-        if (btn) btn.classList.remove(r === 'draw' ? 'draw' : r === 'win' ? 'win' : '');
-      });
-      const targetOutcome = pid === playerId ? 'win' : 'loss';
-      const btn = document.getElementById(`rb-${targetOutcome}-${pid}`);
-      if (btn) { btn.classList.add(targetOutcome === 'win' ? 'win' : ''); }
+      document.getElementById(`rb-win-${pid}`)?.classList.remove('win');
+      document.getElementById(`rb-draw-${pid}`)?.classList.remove('draw');
+      if (pid === playerId) {
+        document.getElementById(`rb-win-${pid}`)?.classList.add('win');
+      }
     });
   } else if (outcome === 'draw') {
     scorePodContext.results[playerId] = 'draw';
@@ -1093,19 +1091,46 @@ function updateTimerDisplay() {
   if (tvEl) { tvEl.className = 'tv-time'; if (tvCls) tvEl.classList.add(tvCls); }
 }
 
+// Web Audio beep: frequency in Hz, duration in ms, number of beeps
+function playBeep(freq, duration, count, interval) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const fire = (delay) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration / 1000);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + duration / 1000);
+    };
+    for (let i = 0; i < count; i++) fire(i * (interval / 1000));
+    setTimeout(() => ctx.close(), (count * interval) + 500);
+  } catch(e) {}
+}
+
 function checkWarnings() {
-  const warnings = [{ s: 1800, label: '30 minutes' }, { s: 900, label: '15 minutes' }, { s: 300, label: '5 minutes' }, { s: 60, label: '1 minute' }];
+  const warnings = [
+    { s: 1800, label: '30 minutes', freq: 660, beeps: 1 },
+    { s: 900,  label: '15 minutes', freq: 660, beeps: 2 },
+    { s: 300,  label: '5 minutes',  freq: 880, beeps: 3 },
+    { s: 60,   label: '1 minute',   freq: 1100, beeps: 4 }
+  ];
   for (const w of warnings) {
     if (timerSeconds === w.s && !timerWarned[w.s]) {
       timerWarned[w.s] = true;
-      // Flash notification in TV mode if active
+      playBeep(w.freq, 200, w.beeps, 350);
       flashTVWarning(w.label);
     }
   }
   if (timerSeconds === 0 && !timerWarned[0]) {
     timerWarned[0] = true;
     timerPause();
-    flashTVWarning('TIME\'S UP!');
+    playBeep(440, 600, 3, 700);
+    flashTVWarning("TIME'S UP!");
   }
 }
 

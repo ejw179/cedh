@@ -215,6 +215,13 @@
   <div id="archive-list"></div>
 </div>
 
+<!-- REGISTRATION PAGE (public player view) -->
+<div class="page" id="page-register">
+  <div style="max-width:480px;margin:40px auto;padding:0 24px;">
+    <div id="register-content"><p class="text-muted">Loading...</p></div>
+  </div>
+</div>
+
 <!-- TV OVERLAY -->
 <div id="tv-overlay">
   <span class="tv-exit" onclick="closeTV()">✕ Exit TV Mode</span>
@@ -315,12 +322,59 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
 window.onerror = function(msg, src, line, col, err) {
   document.body.insertAdjacentHTML('afterbegin',
     '<div style="position:fixed;top:0;left:0;right:0;background:#f85149;color:#fff;padding:12px;z-index:9999;font-size:13px;">' +
     '⚠ JS Error: ' + msg + ' (line ' + line + ')</div>');
 };
+// ============================================================
+// FIREBASE
+// ============================================================
+firebase.initializeApp({
+  apiKey: "AIzaSyDa5yzkVyrxUDWyr8Erc009aRCzEIU8M60",
+  authDomain: "cedh-tm.firebaseapp.com",
+  projectId: "cedh-tm",
+  storageBucket: "cedh-tm.firebasestorage.app",
+  messagingSenderId: "819963730666",
+  appId: "1:819963730666:web:e4b80f8201773f35c15593"
+});
+const db = firebase.firestore();
+
+async function loadFromFirestore() {
+  const [evSnap, archSnap] = await Promise.all([
+    db.collection('events').get(),
+    db.collection('archive').get()
+  ]);
+  const data = {
+    events: evSnap.docs.map(d => d.data()),
+    archive: archSnap.docs.map(d => d.data())
+  };
+  // Firestore is source of truth — overwrite localStorage
+  try { localStorage.setItem('cedh_tm', JSON.stringify(data)); } catch(e) {}
+}
+
+let _regListener = null;
+function startRegistrationListener(eventId) {
+  if (_regListener) { _regListener(); _regListener = null; }
+  _regListener = db.collection('events').doc(eventId).onSnapshot(doc => {
+    if (!doc.exists) return;
+    const ev = doc.data();
+    try {
+      const d = JSON.parse(localStorage.getItem('cedh_tm') || '{"events":[],"archive":[]}');
+      const i = d.events.findIndex(e => e.id === eventId);
+      if (i >= 0) d.events[i] = ev; else d.events.push(ev);
+      localStorage.setItem('cedh_tm', JSON.stringify(d));
+    } catch(e) {}
+    if (currentEventId === eventId) renderTournament();
+  });
+}
+function stopRegistrationListener() {
+  if (_regListener) { _regListener(); _regListener = null; }
+}
+
 // ============================================================
 // STORAGE
 // ============================================================
@@ -339,10 +393,10 @@ const DB = {
     } catch(e) { return { events: [], archive: [] }; }
   },
   set(d) {
-    try {
-      localStorage.setItem('cedh_tm', JSON.stringify(d));
-    } catch(e) {
-      console.error('localStorage write failed:', e);
+    try { localStorage.setItem('cedh_tm', JSON.stringify(d)); } catch(e) {}
+    // Sync active events to Firestore (fire and forget)
+    if (typeof db !== 'undefined') {
+      d.events.forEach(ev => db.collection('events').doc(ev.id).set(ev).catch(console.error));
     }
   },
   save(fn) { const d = this.get(); fn(d); this.set(d); }
@@ -367,6 +421,9 @@ function showPage(name) {
 function openTournament(id) {
   currentEventId = id;
   currentTab = 'pods';
+  const ev = getEvent(id);
+  if (ev && ev.status === 'registration') startRegistrationListener(id);
+  else stopRegistrationListener();
   showPage('tournament');
   renderTournament();
 }
@@ -574,6 +631,7 @@ function renderTournament() {
       </div>
       <div class="gap">
         ${event.status === 'swiss' ? `<button class="btn-secondary" onclick="showPage('timer');initTimer(${event.rounds.length})">⏱ Timer</button>` : ''}
+        ${event.status === 'registration' ? `<button class="btn-secondary btn-sm" id="reg-link-btn" onclick="copyRegistrationLink()">🔗 Copy Reg Link</button>` : ''}
         ${(event.status === 'registration' || event.status === 'swiss') ? `<button class="btn-secondary btn-sm" onclick="openEditEventModal()">⚙ Settings</button>` : ''}
         ${event.status !== 'complete' ? `<button class="btn-danger btn-sm" onclick="archiveEvent()">Archive</button>` : ''}
       </div>
@@ -687,6 +745,7 @@ function removePlayer(pid) {
 }
 
 function startTournament() {
+  stopRegistrationListener();
   const event = getEvent(currentEventId);
   event.status = 'swiss';
   const pods = generateRound(event);
@@ -1212,13 +1271,18 @@ function closeTV() {
 function archiveEvent() {
   const confirmed = window.confirm('Archive this event? It will move to the archive and become read-only.');
   if (!confirmed) return;
+  stopRegistrationListener();
+  const id = currentEventId;
   DB.save(d => {
-    const idx = d.events.findIndex(e => e.id === currentEventId);
+    const idx = d.events.findIndex(e => e.id === id);
     if (idx >= 0) {
       const [ev] = d.events.splice(idx, 1);
       ev.archivedAt = Date.now();
       ev.status = 'complete';
       d.archive.push(ev);
+      // Firestore: move from events to archive
+      db.collection('events').doc(id).delete().catch(console.error);
+      db.collection('archive').doc(id).set(ev).catch(console.error);
     }
   });
   showPage('home');
@@ -1330,6 +1394,97 @@ function importData(e) {
 }
 
 // ============================================================
+// REGISTRATION PAGE (public player view)
+// ============================================================
+function copyRegistrationLink() {
+  const url = window.location.origin + window.location.pathname + '?register=' + currentEventId;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('reg-link-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '🔗 Copy Reg Link', 2000); }
+  }).catch(() => prompt('Copy this link:', url));
+}
+
+async function showRegistrationPage(eventId) {
+  // Hide nav for players
+  document.querySelector('nav').style.display = 'none';
+  showPage('register');
+  const el = document.getElementById('register-content');
+  el.innerHTML = '<p class="text-muted">Loading event...</p>';
+  try {
+    const doc = await db.collection('events').doc(eventId).get();
+    if (!doc.exists) { el.innerHTML = '<p>Event not found.</p>'; return; }
+    renderRegisterView(doc.data());
+    // Live updates
+    db.collection('events').doc(eventId).onSnapshot(d => {
+      if (d.exists) renderRegisterView(d.data());
+    });
+  } catch(e) {
+    el.innerHTML = '<p class="text-muted">Could not load event. Check your connection.</p>';
+  }
+}
+
+function renderRegisterView(event) {
+  const el = document.getElementById('register-content');
+  const open = event.status === 'registration';
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:40px;margin-bottom:10px;">⚔</div>
+      <h1 style="margin-bottom:6px;">${event.name}</h1>
+      <p class="text-muted">${event.date} &nbsp;·&nbsp; ${formatStatus(event.status)}</p>
+    </div>
+    ${open ? `
+      <div class="card" style="margin-bottom:16px;">
+        <h2 style="margin-bottom:12px;">Join Tournament</h2>
+        <div class="gap">
+          <input type="text" id="reg-name-input" placeholder="Your first name" maxlength="30"
+            onkeydown="if(event.key==='Enter')submitRegistration('${event.id}')">
+          <button class="btn-success" onclick="submitRegistration('${event.id}')">Join</button>
+        </div>
+        <div id="reg-error" style="display:none;margin-top:10px;" class="alert alert-warn"></div>
+        <div id="reg-success" style="display:none;margin-top:10px;" class="alert alert-info"></div>
+      </div>
+    ` : `<div class="alert alert-warn" style="margin-bottom:16px;">Registration is closed for this event.</div>`}
+    <div class="card">
+      <h3 style="margin-bottom:12px;">Players (${event.players.length})</h3>
+      ${event.players.length === 0
+        ? '<p class="text-muted" style="font-size:13px;">No one registered yet — be first!</p>'
+        : event.players.map((p, i) => `
+            <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;">${i + 1}. ${p.name}</div>
+          `).join('')}
+    </div>
+  `;
+}
+
+async function submitRegistration(eventId) {
+  const input = document.getElementById('reg-name-input');
+  const errEl = document.getElementById('reg-error');
+  const okEl  = document.getElementById('reg-success');
+  const name = input.value.trim();
+  errEl.style.display = 'none';
+  okEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Please enter your name.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const snap = await db.collection('events').doc(eventId).get();
+    if (!snap.exists) { errEl.textContent = 'Event not found.'; errEl.style.display = 'block'; return; }
+    const ev = snap.data();
+    if (ev.status !== 'registration') { errEl.textContent = 'Registration is closed.'; errEl.style.display = 'block'; return; }
+    if (ev.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+      errEl.textContent = name + ' is already registered.'; errEl.style.display = 'block'; return;
+    }
+    const newPlayer = { id: Date.now().toString(), name, points: 0, wins: 0, draws: 0 };
+    await db.collection('events').doc(eventId).update({
+      players: firebase.firestore.FieldValue.arrayUnion(newPlayer)
+    });
+    input.value = '';
+    okEl.textContent = "You're registered, " + name + "! See you at the table.";
+    okEl.style.display = 'block';
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block';
+  }
+}
+
+// ============================================================
 // EDIT EVENT SETTINGS
 // ============================================================
 function openEditEventModal() {
@@ -1373,15 +1528,16 @@ function saveEventSettings() {
 // ============================================================
 // INIT
 // ============================================================
-renderEventsList();
+(async () => {
+  // Player registration view — no TO controls needed
+  const params = new URLSearchParams(window.location.search);
+  const regId = params.get('register');
+  if (regId) { showRegistrationPage(regId); return; }
 
-if (!_storageOk) {
-  document.body.insertAdjacentHTML('afterbegin',
-    '<div style="background:var(--red);color:#fff;padding:10px 16px;font-size:13px;text-align:center;">' +
-    '⚠ Your browser is blocking local storage — events will not be saved between sessions. ' +
-    'Check your browser\'s privacy settings (disable "Clear data on close" or allow cookies for this site).' +
-    '</div>');
-}
+  // Load from Firestore first, then render
+  try { await loadFromFirestore(); } catch(e) { console.warn('Firestore load failed, using localStorage:', e); }
+  renderEventsList();
+})();
 </script>
 </body>
 </html>

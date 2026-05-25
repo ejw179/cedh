@@ -715,17 +715,13 @@ function openScoreModal(roundIdx, podIdx) {
     scorePodContext.byeOnly = true;
     scorePodContext.byePlayerId = players[0].id;
   } else {
-    let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Select one winner, or mark all as Draw.</p>`;
+    let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Click a player's name to mark them as winner. Or mark all as Draw.</p>`;
     body += `<ul class="pod-players" id="score-player-list">`;
     players.forEach(p => {
       body += `
         <li>
-          <span style="font-weight:500;">${p.name}</span>
-          <div class="pod-result-btns">
-            <button class="result-btn" id="rb-win-${p.id}" onclick="selectResult('${p.id}','win',${players.length})"  >Win</button>
-            <button class="result-btn" id="rb-draw-${p.id}" onclick="selectResult('${p.id}','draw',${players.length})">Draw</button>
-            <button class="result-btn" id="rb-loss-${p.id}" onclick="selectResult('${p.id}','loss',${players.length})">Loss</button>
-          </div>
+          <button class="result-btn" id="rb-win-${p.id}" onclick="selectWinner('${p.id}')" style="text-align:left;padding:8px 14px;width:auto;font-size:14px;">${p.name}</button>
+          <span id="rb-status-${p.id}" class="badge" style="min-width:50px;text-align:center;"></span>
         </li>`;
     });
     body += `</ul>`;
@@ -738,38 +734,29 @@ function openScoreModal(roundIdx, podIdx) {
   openModal('modal-score');
 }
 
-function selectResult(playerId, outcome, total) {
+function selectWinner(playerId) {
   if (!scorePodContext.results) scorePodContext.results = {};
-
-  if (outcome === 'win') {
-    // Only one winner — set others to loss
-    scorePodContext.playerIds.forEach(pid => {
-      scorePodContext.results[pid] = pid === playerId ? 'win' : 'loss';
-    });
-    // Update UI — clear all highlights then set win/loss
-    scorePodContext.playerIds.forEach(pid => {
-      document.getElementById(`rb-win-${pid}`)?.classList.remove('win');
-      document.getElementById(`rb-draw-${pid}`)?.classList.remove('draw');
-      if (pid === playerId) {
-        document.getElementById(`rb-win-${pid}`)?.classList.add('win');
-      }
-    });
-  } else if (outcome === 'draw') {
-    scorePodContext.results[playerId] = 'draw';
-    ['win','loss'].forEach(r => { const b = document.getElementById(`rb-${r}-${playerId}`); if(b) b.classList.remove('win'); });
-    document.getElementById(`rb-draw-${playerId}`)?.classList.add('draw');
-  } else {
-    scorePodContext.results[playerId] = 'loss';
-    ['win','draw'].forEach(r => { const b = document.getElementById(`rb-${r}-${playerId}`); if(b) b.classList.remove(r==='win'?'win':'draw'); });
-  }
+  scorePodContext.playerIds.forEach(pid => {
+    scorePodContext.results[pid] = pid === playerId ? 'win' : 'loss';
+    const btn = document.getElementById(`rb-win-${pid}`);
+    const status = document.getElementById(`rb-status-${pid}`);
+    if (pid === playerId) {
+      btn?.classList.add('win');
+      if (status) { status.textContent = 'WIN'; status.className = 'badge badge-green'; }
+    } else {
+      btn?.classList.remove('win');
+      if (status) { status.textContent = 'LOSS'; status.className = 'badge badge-red'; }
+    }
+  });
 }
 
 function selectAllDraw(playerIds) {
   if (!scorePodContext.results) scorePodContext.results = {};
   playerIds.forEach(pid => {
     scorePodContext.results[pid] = 'draw';
-    ['win','loss'].forEach(r => document.getElementById(`rb-${r}-${pid}`)?.classList.remove('win'));
-    document.getElementById(`rb-draw-${pid}`)?.classList.add('draw');
+    document.getElementById(`rb-win-${pid}`)?.classList.remove('win');
+    const status = document.getElementById(`rb-status-${pid}`);
+    if (status) { status.textContent = 'DRAW'; status.className = 'badge badge-yellow'; }
   });
 }
 
@@ -908,16 +895,12 @@ function openTopCutScoreModal(phase, podIdx) {
 
   document.getElementById('score-modal-title').textContent = phase === 'final' ? '🏆 Final Pod Results' : `Top Cut Pod ${podIdx + 1} Results`;
 
-  let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Select one winner, or mark all as Draw.</p>
+  let body = `<p class="text-muted" style="margin-bottom:16px;font-size:13px;">Click a player's name to mark them as winner. Or mark all as Draw.</p>
     <ul class="pod-players" id="score-player-list">`;
   players.forEach(p => {
     body += `<li>
-      <span style="font-weight:500;">${p.name}</span>
-      <div class="pod-result-btns">
-        <button class="result-btn" id="rb-win-${p.id}" onclick="selectResult('${p.id}','win',${players.length})">Win</button>
-        <button class="result-btn" id="rb-draw-${p.id}" onclick="selectResult('${p.id}','draw',${players.length})">Draw</button>
-        <button class="result-btn" id="rb-loss-${p.id}" onclick="selectResult('${p.id}','loss',${players.length})">Loss</button>
-      </div>
+      <button class="result-btn" id="rb-win-${p.id}" onclick="selectWinner('${p.id}')" style="text-align:left;padding:8px 14px;width:auto;font-size:14px;">${p.name}</button>
+      <span id="rb-status-${p.id}" class="badge" style="min-width:50px;text-align:center;"></span>
     </li>`;
   });
   body += `</ul><button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw(${JSON.stringify(players.map(p=>p.id))})">Mark All as Draw</button>`;

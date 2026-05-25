@@ -165,20 +165,22 @@
 
   <div style="margin-top:40px;">
     <h2 style="margin-bottom:4px;">We consulted for snacks. Help us resolve it.</h2>
-    <p class="text-muted" style="margin-bottom:20px;font-size:13px;">Donations keep the table stocked. Scan any of the options below.</p>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;">
-      <div class="card text-center" style="flex:1;min-width:160px;max-width:220px;">
-        <img src="paypal.png" alt="PayPal QR" style="width:100%;max-width:180px;border-radius:8px;display:block;margin:0 auto 12px;">
-        <span style="font-weight:600;font-size:15px;">PayPal</span>
-      </div>
-      <div class="card text-center" style="flex:1;min-width:160px;max-width:220px;">
-        <img src="cashapp.png" alt="Cash App QR" style="width:100%;max-width:180px;border-radius:8px;display:block;margin:0 auto 12px;">
-        <span style="font-weight:600;font-size:15px;">Cash App</span>
-      </div>
-      <div class="card text-center" style="flex:1;min-width:160px;max-width:220px;">
-        <img src="venmo.png" alt="Venmo QR" style="width:100%;max-width:180px;border-radius:8px;display:block;margin:0 auto 12px;">
-        <span style="font-weight:600;font-size:15px;">Venmo</span>
-      </div>
+    <p class="text-muted" style="margin-bottom:20px;font-size:13px;">Donations keep the table stocked.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <a href="https://cash.app/$ejw1799" target="_blank" style="flex:1;min-width:140px;max-width:200px;text-decoration:none;">
+        <div class="card text-center" style="transition:border-color .15s;cursor:pointer;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:32px;margin-bottom:8px;">$</div>
+          <div style="font-weight:700;font-size:16px;color:var(--green);">Cash App</div>
+          <div class="text-muted" style="font-size:12px;margin-top:4px;">$ejw1799</div>
+        </div>
+      </a>
+      <a href="https://venmo.com/u/ejw179" target="_blank" style="flex:1;min-width:140px;max-width:200px;text-decoration:none;">
+        <div class="card text-center" style="transition:border-color .15s;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:32px;margin-bottom:8px;">✌</div>
+          <div style="font-weight:700;font-size:16px;color:var(--accent);">Venmo</div>
+          <div class="text-muted" style="font-size:12px;margin-top:4px;">@ejw179</div>
+        </div>
+      </a>
     </div>
   </div>
 </div>
@@ -744,7 +746,7 @@ function openScoreModal(roundIdx, podIdx) {
         </li>`;
     });
     body += `</ul>`;
-    body += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw(${JSON.stringify(players.map(p=>p.id))})">Mark All as Draw</button>`;
+    body += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw()">Mark All as Draw</button>`;
     document.getElementById('score-modal-body').innerHTML = body;
     scorePodContext.playerIds = players.map(p => p.id);
     scorePodContext.results = {};
@@ -769,9 +771,9 @@ function selectWinner(playerId) {
   });
 }
 
-function selectAllDraw(playerIds) {
+function selectAllDraw() {
   if (!scorePodContext.results) scorePodContext.results = {};
-  playerIds.forEach(pid => {
+  scorePodContext.playerIds.forEach(pid => {
     scorePodContext.results[pid] = 'draw';
     document.getElementById(`rb-win-${pid}`)?.classList.remove('win');
     const status = document.getElementById(`rb-status-${pid}`);
@@ -922,7 +924,7 @@ function openTopCutScoreModal(phase, podIdx) {
       <span id="rb-status-${p.id}" class="badge" style="min-width:50px;text-align:center;"></span>
     </li>`;
   });
-  body += `</ul><button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw(${JSON.stringify(players.map(p=>p.id))})">Mark All as Draw</button>`;
+  body += `</ul><button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="selectAllDraw()">Mark All as Draw</button>`;
   document.getElementById('score-modal-body').innerHTML = body;
   scorePodContext.isTopCut = true;
   openModal('modal-score');

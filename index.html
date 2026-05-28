@@ -63,6 +63,7 @@
   /* PAGES */
   .page { display: none; padding: 24px; max-width: 960px; margin: 0 auto; }
   .page.active { display: block; }
+  #page-tournament { max-width: 1440px; }
 
   /* EVENTS LIST */
   .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: border-color .15s; }
@@ -70,11 +71,15 @@
   .event-card h3 { margin-bottom: 4px; }
 
   /* POD DISPLAY */
-  .pod { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-  .pod-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .pod { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 0; }
+  .pod-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .pod-players { list-style: none; }
-  .pod-players li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+  .pod-players li { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
   .pod-players li:last-child { border-bottom: none; }
+  /* Pod grid: 3 columns on wide screens, 2 on medium, 1 on narrow */
+  .pods-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1100px) { .pods-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 680px) { .pods-grid { grid-template-columns: 1fr; } }
   .pod-result-btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .result-btn { padding: 3px 10px; font-size: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all .15s; }
   .result-btn.win { background: var(--green); color: #000; border-color: var(--green); font-weight: 600; }
@@ -777,24 +782,26 @@ function renderSwiss(event) {
     </div>
   `;
 
+  html += `<div class="pods-grid">`;
   round.pods.forEach((pod, pi) => {
     const players = pod.players.map(id => event.players.find(p => p.id === id));
-    const isBye = pod.players.length === 1;
     html += `<div class="pod">
       <div class="pod-header">
         <h3>Pod ${pi + 1} ${pod.players.length === 3 ? '<span class="badge badge-yellow">3-player</span>' : ''} ${pod.players.length === 5 ? '<span class="badge badge-purple">5-player</span>' : ''}</h3>
         ${!pod.result ? `<button class="btn-primary btn-sm" onclick="openScoreModal(${roundIdx},${pi})">Enter Results</button>` : `<span class="badge badge-green">✓ Scored</span>`}
       </div>
       <ul class="pod-players">
-        ${players.map(p => `
-          <li>
+        ${players.map(p => {
+          const mwp = roundIdx > 0 ? ` · ${fmtPct(calcMWP(p, event))} MWP` : '';
+          return `<li>
             <span>${p.name}</span>
-            ${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase() || ''}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts</span>`}
-          </li>
-        `).join('')}
+            ${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase() || ''}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts${mwp}</span>`}
+          </li>`;
+        }).join('')}
       </ul>
     </div>`;
   });
+  html += `</div>`;
 
   return html;
 }
@@ -922,12 +929,47 @@ function saveSwissScore() {
 }
 
 // ============================================================
+// WIN PERCENTAGE (MWP & OMWP tiebreakers)
+// ============================================================
+// MWP = wins / completed rounds, floored at 33% (standard Swiss minimum)
+function calcMWP(player, event) {
+  const completed = event.rounds.filter(r => r.complete).length;
+  if (completed === 0) return 1/3;
+  return Math.max(player.wins / completed, 1/3);
+}
+
+// OMWP = average MWP of all pod-mates across completed rounds
+function calcOMWP(player, event) {
+  const oppIds = new Set();
+  event.rounds.filter(r => r.complete).forEach(round => {
+    round.pods.forEach(pod => {
+      if (pod.players.includes(player.id)) {
+        pod.players.forEach(id => { if (id !== player.id) oppIds.add(id); });
+      }
+    });
+  });
+  if (oppIds.size === 0) return 1/3;
+  const mwps = [...oppIds].map(id => {
+    const opp = event.players.find(p => p.id === id);
+    return opp ? calcMWP(opp, event) : 1/3;
+  });
+  return mwps.reduce((a, b) => a + b, 0) / mwps.length;
+}
+
+function fmtPct(val) {
+  return (val * 100).toFixed(1) + '%';
+}
+
+// ============================================================
 // TOP CUT
 // ============================================================
 function getStandings(event) {
   return [...event.players].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
-    return b.wins - a.wins;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    const mwpDiff = calcMWP(b, event) - calcMWP(a, event);
+    if (Math.abs(mwpDiff) > 0.0001) return mwpDiff;
+    return calcOMWP(b, event) - calcOMWP(a, event);
   });
 }
 
@@ -959,6 +1001,7 @@ function renderTopCutPhase(event) {
     ${allScored ? `<button class="btn-success" onclick="advanceToFinal()">Advance to Finals →</button>` : ''}
   </div>`;
 
+  html += `<div class="pods-grid">`;
   tc.pods.forEach((pod, pi) => {
     const players = pod.players.map(id => event.players.find(p => p.id === id));
     html += `<div class="pod">
@@ -967,10 +1010,11 @@ function renderTopCutPhase(event) {
         ${!pod.result ? `<button class="btn-primary btn-sm" onclick="openTopCutScoreModal('topcut',${pi})">Enter Results</button>` : `<span class="badge badge-green">✓ Scored</span>`}
       </div>
       <ul class="pod-players">
-        ${players.map(p => `<li><span>${p.name}</span>${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase()}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts</span>`}</li>`).join('')}
+        ${players.map(p => `<li><span>${p.name}</span>${pod.result ? `<span class="badge ${resultBadgeClass(pod.result[p.id])}">${pod.result[p.id]?.toUpperCase()}</span>` : `<span class="text-muted" style="font-size:12px;">${p.points} pts · ${fmtPct(calcMWP(p, event))} MWP</span>`}</li>`).join('')}
       </ul>
     </div>`;
   });
+  html += `</div>`;
   return html;
 }
 
@@ -1117,9 +1161,11 @@ function renderStandingsTab(event) {
   const standings = getStandings(event);
   const cutLine = event.format === 'swiss-top4' ? 4 : event.format === 'swiss-topcut-top4' ? (event.topCutSize || 8) : 0;
 
+  const hasRounds = event.rounds && event.rounds.some(r => r.complete);
   let html = `<table class="standings-table">
     <thead><tr>
       <th>#</th><th>Player</th><th>Points</th><th>Wins</th><th>Draws</th>
+      ${hasRounds ? `<th title="Match Win Percentage: your wins ÷ rounds played (min 33%)">MWP</th><th title="Opponent Match Win Percentage: average MWP of your pod-mates">OMWP</th>` : ''}
     </tr></thead><tbody>`;
 
   standings.forEach((p, i) => {
@@ -1132,6 +1178,7 @@ function renderStandingsTab(event) {
       <td><strong>${p.points || 0}</strong></td>
       <td>${p.wins || 0}</td>
       <td>${p.draws || 0}</td>
+      ${hasRounds ? `<td style="color:var(--text-muted);font-size:13px;">${fmtPct(calcMWP(p, event))}</td><td style="color:var(--text-muted);font-size:13px;">${fmtPct(calcOMWP(p, event))}</td>` : ''}
     </tr>`;
   });
 
@@ -1316,7 +1363,7 @@ function renderArchive() {
         </div>
       </div>
       <p class="text-muted" style="margin-top:4px;">${ev.date} · ${ev.players.length} players · ${ev.swissRounds} rounds</p>
-      ${winner ? `<p style="margin-top:8px;font-size:13px;">🏆 <strong>${winner.name}</strong> (${winner.points} pts)</p>` : ''}
+      ${winner ? `<p style="margin-top:8px;font-size:13px;">🏆 <strong>${winner.name}</strong> (${winner.points} pts · ${fmtPct(calcMWP(winner, ev))} MWP · ${fmtPct(calcOMWP(winner, ev))} OMWP)</p>` : ''}
     </div>`;
   }).join('');
 }

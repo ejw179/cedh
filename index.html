@@ -155,7 +155,7 @@
 <body>
 
 <nav>
-  <span class="logo">⚔ Eric's cEDH Tournaments</span>
+  <span class="logo">⚔ Eric's cEDH Tournaments <span style="font-size:11px;font-weight:400;opacity:.5;">v1.1</span></span>
   <span class="nav-link active" onclick="showPage('home')">Events</span>
   <span class="nav-link" onclick="showPage('archive')">Archive</span>
   <span style="margin-left:auto;display:flex;gap:8px;">
@@ -1378,14 +1378,14 @@ function checkWarnings() {
     { s: 60,   label: '1 minute',   freq: 1100, beeps: 4 }
   ];
   for (const w of warnings) {
-    if (timerSeconds === w.s && !timerWarned[w.s]) {
+    if (timerSeconds <= w.s && !timerWarned[w.s]) {
       timerWarned[w.s] = true;
       playBeep(w.freq, 200, w.beeps, 350);
       speak(`${w.label} remaining`);
       flashTVWarning(w.label);
     }
   }
-  if (timerSeconds === 0 && !timerWarned[0]) {
+  if (timerSeconds <= 0 && !timerWarned[0]) {
     timerWarned[0] = true;
     timerPause();
     playBeep(440, 600, 3, 700);

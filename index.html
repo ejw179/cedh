@@ -197,7 +197,7 @@
     <div class="timer-config">
       <div class="form-group">
         <label>Minutes</label>
-        <input type="number" id="timer-minutes" value="60" min="1" max="180" onchange="timerReset()">
+        <input type="number" id="timer-minutes" value="65" min="1" max="180" onchange="timerReset()">
       </div>
     </div>
     <div class="card text-center" style="margin-top:8px;">
@@ -1227,7 +1227,7 @@ let timerRunning = false;
 let timerWarned = {};
 
 function initTimer(roundNum) {
-  const mins = parseInt(document.getElementById('timer-minutes')?.value || 60);
+  const mins = parseInt(document.getElementById('timer-minutes')?.value || 65);
   timerSeconds = mins * 60;
   timerWarned = {};
   timerRunning = false;
@@ -1257,7 +1257,7 @@ function timerPause() {
 
 function timerReset() {
   timerPause();
-  const mins = parseInt(document.getElementById('timer-minutes')?.value || 60);
+  const mins = parseInt(document.getElementById('timer-minutes')?.value || 65);
   timerSeconds = mins * 60;
   timerWarned = {};
   updateTimerDisplay();
@@ -1307,6 +1307,14 @@ function playBeep(freq, duration, count, interval) {
   } catch(e) {}
 }
 
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.95;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utt);
+}
+
 function checkWarnings() {
   const warnings = [
     { s: 1800, label: '30 minutes', freq: 660, beeps: 1 },
@@ -1318,6 +1326,7 @@ function checkWarnings() {
     if (timerSeconds === w.s && !timerWarned[w.s]) {
       timerWarned[w.s] = true;
       playBeep(w.freq, 200, w.beeps, 350);
+      speak(`${w.label} remaining`);
       flashTVWarning(w.label);
     }
   }
@@ -1325,6 +1334,7 @@ function checkWarnings() {
     timerWarned[0] = true;
     timerPause();
     playBeep(440, 600, 3, 700);
+    speak("Time's up!");
     flashTVWarning("TIME'S UP!");
   }
 }

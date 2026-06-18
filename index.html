@@ -155,7 +155,7 @@
 <body>
 
 <nav>
-  <span class="logo">⚔ cEDH TM</span>
+  <span class="logo">⚔ Eric's cEDH Tournaments</span>
   <span class="nav-link active" onclick="showPage('home')">Events</span>
   <span class="nav-link" onclick="showPage('archive')">Archive</span>
   <span style="margin-left:auto;display:flex;gap:8px;">
@@ -194,10 +194,18 @@
       <button class="btn-secondary" onclick="timerPause()" id="timer-pause-btn" disabled>Pause</button>
       <button class="btn-secondary" onclick="timerReset()">Reset</button>
     </div>
+    <div class="timer-controls" style="margin-top:0;">
+      <button class="btn-secondary" onclick="timerExtend(-60)">− 1 min</button>
+      <button class="btn-secondary" onclick="timerExtend(60)">+ 1 min</button>
+    </div>
     <div class="timer-config">
       <div class="form-group">
         <label>Minutes</label>
         <input type="number" id="timer-minutes" value="65" min="1" max="180" onchange="timerReset()">
+      </div>
+      <div class="form-group">
+        <label>Voice</label>
+        <select id="timer-voice" style="width:200px;"></select>
       </div>
     </div>
     <div class="card text-center" style="margin-top:8px;">
@@ -520,7 +528,7 @@ function shuffle(arr) {
 
 // Seed pods by points. Players sorted desc by points.
 // Group similar-point players together, avoid repeat pod-mates.
-function seedPods(players, history, preferFour = false) {
+function seedPods(players, history, preferFour = false, byedPlayerIds = new Set()) {
   // Sort descending by points, then by wins as tiebreak
   const sorted = [...players].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -528,22 +536,38 @@ function seedPods(players, history, preferFour = false) {
   });
   const n = sorted.length;
 
-  // Determine pod sizes
-  let sizes = [];
-  if (preferFour) {
-    sizes = [...Array(Math.floor(n / 4)).fill(4), ...Array(n % 4).fill(1)];
-  } else {
-    const r = n % 4;
-    if (r === 0) sizes = Array(n / 4).fill(4);
-    else if (r === 3) sizes = [3, ...Array((n - 3) / 4).fill(4)];
-    else if (r === 2) sizes = [3, 3, ...Array((n - 6) / 4).fill(4)];
-    else if (r === 1) {
-      if (n === 5) sizes = [5];
-      else sizes = [3, 3, 3, ...Array((n - 9) / 4).fill(4)];
+  if (preferFour && n % 4 !== 0) {
+    const numByes = n % 4;
+    const pool = [...sorted];
+    const byePods = [];
+
+    for (let i = 0; i < numByes; i++) {
+      // Lowest-ranked player who hasn't had a bye; fall back to lowest ranked
+      let byeIdx = -1;
+      for (let j = pool.length - 1; j >= 0; j--) {
+        if (!byedPlayerIds.has(pool[j].id)) { byeIdx = j; break; }
+      }
+      if (byeIdx === -1) byeIdx = pool.length - 1;
+      byePods.push([pool.splice(byeIdx, 1)[0]]);
     }
+
+    // Remaining count is now divisible by 4
+    const regularPods = [];
+    for (let i = 0; i < pool.length; i += 4) regularPods.push(pool.slice(i, i + 4));
+    return [...regularPods, ...byePods];
   }
 
-  // Assign players to pods in order (top players fill top pods)
+  // Determine pod sizes (no byes)
+  let sizes = [];
+  const r = n % 4;
+  if (r === 0) sizes = Array(n / 4).fill(4);
+  else if (r === 3) sizes = [3, ...Array((n - 3) / 4).fill(4)];
+  else if (r === 2) sizes = [3, 3, ...Array((n - 6) / 4).fill(4)];
+  else if (r === 1) {
+    if (n === 5) sizes = [5];
+    else sizes = [3, 3, 3, ...Array((n - 9) / 4).fill(4)];
+  }
+
   const pods = [];
   let idx = 0;
   for (const size of sizes) {
@@ -567,17 +591,21 @@ function generateRound(event) {
       result: null
     }));
   } else {
-    // Get history of who played with whom
+    // Get history of who played with whom, and who has received a bye
     const history = {};
+    const byedPlayerIds = new Set();
     for (const round of event.rounds) {
       for (const pod of round.pods) {
+        if (pod.players.length === 1) {
+          byedPlayerIds.add(pod.players[0]);
+        }
         for (const pid of pod.players) {
           if (!history[pid]) history[pid] = [];
           history[pid].push(...pod.players.filter(x => x !== pid));
         }
       }
     }
-    const podArrays = seedPods(players, history, preferFour);
+    const podArrays = seedPods(players, history, preferFour, byedPlayerIds);
     return podArrays.map((p, i) => ({
       id: i,
       players: p.map(pl => pl.id),
@@ -1307,12 +1335,39 @@ function playBeep(freq, duration, count, interval) {
   } catch(e) {}
 }
 
+function populateVoices() {
+  const sel = document.getElementById('timer-voice');
+  if (!sel || !window.speechSynthesis) return;
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return;
+  const current = sel.value;
+  sel.innerHTML = voices.map((v, i) =>
+    `<option value="${i}"${v.default ? ' selected' : ''}>${v.name} (${v.lang})</option>`
+  ).join('');
+  if (current) sel.value = current;
+}
+if (window.speechSynthesis) {
+  speechSynthesis.addEventListener('voiceschanged', populateVoices);
+  populateVoices();
+}
+
 function speak(text) {
   if (!window.speechSynthesis) return;
   const utt = new SpeechSynthesisUtterance(text);
   utt.rate = 0.95;
+  const sel = document.getElementById('timer-voice');
+  if (sel) {
+    const voices = speechSynthesis.getVoices();
+    const v = voices[parseInt(sel.value)];
+    if (v) utt.voice = v;
+  }
   speechSynthesis.cancel();
   speechSynthesis.speak(utt);
+}
+
+function timerExtend(seconds) {
+  timerSeconds = Math.max(0, timerSeconds + seconds);
+  updateTimerDisplay();
 }
 
 function checkWarnings() {

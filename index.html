@@ -336,9 +336,11 @@
       </label>
       <p style="margin:4px 0 0 24px;font-size:12px;color:var(--text-muted);">e.g. 9 players → 2 pods of 4 + 1 bye instead of 3 pods of 3</p>
     </div>
+    <div id="edit-event-info" style="display:none;" class="alert alert-info"></div>
     <div id="edit-event-warn" style="display:none;" class="alert alert-warn"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-edit-event')">Cancel</button>
+      <button class="btn-secondary" id="edit-event-regenerate" style="display:none;" onclick="regeneratePairings()">Regenerate Pairings</button>
       <button class="btn-primary" onclick="saveEventSettings()">Save</button>
     </div>
   </div>
@@ -1659,6 +1661,9 @@ function openEditEventModal() {
   document.getElementById('edit-event-prefer-four').checked = !!event.preferFourPods;
   document.getElementById('edit-event-warn').style.display = 'none';
   document.getElementById('edit-event-error').style.display = 'none';
+  document.getElementById('edit-event-info').style.display = 'none';
+  const regenButton = document.getElementById('edit-event-regenerate');
+  regenButton.style.display = event.status === 'swiss' ? 'inline-flex' : 'none';
 
   // Warn if rounds already played
   if (event.rounds.length > 0) {
@@ -1692,6 +1697,49 @@ function saveEventSettings() {
   saveEvent(event);
   closeModal('modal-edit-event');
   renderTournament();
+}
+
+function regeneratePairings() {
+  const event = getEvent(currentEventId);
+  const errEl = document.getElementById('edit-event-error');
+  const infoEl = document.getElementById('edit-event-info');
+  errEl.style.display = 'none';
+  infoEl.style.display = 'none';
+
+  if (event.status !== 'swiss') {
+    errEl.textContent = 'Pairings can only be regenerated during Swiss rounds.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!event.rounds.length) {
+    errEl.textContent = 'No Swiss round exists to regenerate.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const currentRound = event.rounds[event.rounds.length - 1];
+  if (currentRound.complete) {
+    errEl.textContent = 'Cannot regenerate a round that has already been completed.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (currentRound.pods.some(pod => pod.result !== null)) {
+    errEl.textContent = 'Cannot regenerate once some pod results have been entered.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const previousRounds = event.rounds.slice(0, -1);
+  const nextRound = generateRound({ ...event, rounds: previousRounds });
+  event.rounds[event.rounds.length - 1] = { roundNum: currentRound.roundNum, pods: nextRound, complete: false };
+
+  saveEvent(event);
+  renderTournament();
+
+  infoEl.textContent = 'Pairings regenerated for the current Swiss round.';
+  infoEl.style.display = 'block';
 }
 
 // ============================================================

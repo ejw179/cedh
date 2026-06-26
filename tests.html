@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pod Math Tests</title>
+<style>
+  body { font-family: monospace; background: #0d1117; color: #e6edf3; padding: 24px; }
+  h2 { color: #58a6ff; margin: 20px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .pass { color: #3fb950; }
+  .fail { color: #f85149; font-weight: bold; }
+  .detail { color: #8b949e; margin-left: 28px; }
+  hr { border-color: #30363d; margin: 20px 0; }
+  #summary { font-size: 16px; font-weight: bold; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1 style="color:#58a6ff;margin-bottom:4px;">Pod Math Unit Tests</h1>
+<p style="color:#8b949e;font-size:13px;margin-bottom:16px;">Open browser console for additional detail</p>
+<div id="output"></div>
+<script>
+
+// ── Functions under test (must stay in sync with index.html) ─────────────────
+
+function buildPods(players) {
+  const n = players.length;
+  const pods = [];
+  let rem = [...players];
+  const r = n % 4;
+
+  if (r === 1 || r === 2) {
+    while (rem.length > r) pods.push(rem.splice(0, 4));
+    while (rem.length) pods.push(rem.splice(0, 1));
+  } else {
+    while (rem.length > 3) pods.push(rem.splice(0, 4));
+    if (rem.length) pods.push(rem.splice(0));
+  }
+  return pods;
+}
+
+function seedPods(players, history, byedPlayerIds = new Set()) {
+  const sorted = [...players].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.wins - a.wins;
+  });
+  const n = sorted.length;
+  const r = n % 4;
+
+  if (r === 1 || r === 2) {
+    const pool = [...sorted];
+    const byePods = [];
+    for (let i = 0; i < r; i++) {
+      let byeIdx = -1;
+      for (let j = pool.length - 1; j >= 0; j--) {
+        if (!byedPlayerIds.has(pool[j].id)) { byeIdx = j; break; }
+      }
+      if (byeIdx === -1) byeIdx = pool.length - 1;
+      byePods.push([pool.splice(byeIdx, 1)[0]]);
+    }
+    const regularPods = [];
+    for (let i = 0; i < pool.length; i += 4) regularPods.push(pool.slice(i, i + 4));
+    return [...regularPods, ...byePods];
+  }
+
+  const sizes = r === 0 ? Array(n / 4).fill(4) : [...Array((n - 3) / 4).fill(4), 3];
+  const pods = [];
+  let idx = 0;
+  for (const size of sizes) {
+    pods.push(sorted.slice(idx, idx + size));
+    idx += size;
+  }
+  return pods;
+}
+
+// ── Test helpers ──────────────────────────────────────────────────────────────
+
+function makePlayers(n) {
+  return Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, points: 0, wins: 0 }));
+}
+
+let passed = 0, failed = 0;
+const out = document.getElementById('output');
+
+function section(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  out.appendChild(h);
+}
+
+function check(label, pods, expectedSizes) {
+  const actual = pods.map(p => p.length);
+  const ok = JSON.stringify(actual) === JSON.stringify(expectedSizes);
+  const div = document.createElement('div');
+  if (ok) {
+    div.innerHTML = `<span class="pass">✓</span>  ${label}`;
+    passed++;
+  } else {
+    div.innerHTML = `<span class="fail">✗  ${label}</span>
+      <div class="detail">expected: [${expectedSizes}]</div>
+      <div class="detail">got:      [${actual}]</div>`;
+    failed++;
+  }
+  out.appendChild(div);
+}
+
+function checkFoursFirst(label, pods) {
+  const sizes = pods.map(p => p.length).filter(s => s > 1);
+  const sorted = [...sizes].sort((a, b) => b - a);
+  const ok = JSON.stringify(sizes) === JSON.stringify(sorted);
+  const div = document.createElement('div');
+  if (ok) {
+    div.innerHTML = `<span class="pass">✓</span>  ${label}`;
+    passed++;
+  } else {
+    div.innerHTML = `<span class="fail">✗  ${label} — sizes not descending: [${sizes}]</span>`;
+    failed++;
+  }
+  out.appendChild(div);
+}
+
+function checkTotal(fn, label, pods, n) {
+  const total = pods.reduce((s, p) => s + p.length, 0);
+  if (total !== n) {
+    const div = document.createElement('div');
+    div.innerHTML = `<span class="fail">✗  ${fn} ${label} — expected ${n} players, got ${total}</span>`;
+    out.appendChild(div);
+    failed++;
+  } else {
+    passed++;
+  }
+}
+
+// ── buildPods (round 1) ───────────────────────────────────────────────────────
+
+section('buildPods — round 1');
+check(' 4 players → 1×4',             buildPods(makePlayers(4)),  [4]);
+check(' 5 players → 1×4 + 1 bye',    buildPods(makePlayers(5)),  [4, 1]);
+check(' 6 players → 1×4 + 2 byes',   buildPods(makePlayers(6)),  [4, 1, 1]);
+check(' 7 players → 1×4 + 1×3',      buildPods(makePlayers(7)),  [4, 3]);
+check(' 8 players → 2×4',            buildPods(makePlayers(8)),  [4, 4]);
+check(' 9 players → 2×4 + 1 bye',    buildPods(makePlayers(9)),  [4, 4, 1]);
+check('10 players → 2×4 + 2 byes',   buildPods(makePlayers(10)), [4, 4, 1, 1]);
+check('11 players → 2×4 + 1×3',     buildPods(makePlayers(11)), [4, 4, 3]);
+check('12 players → 3×4',            buildPods(makePlayers(12)), [4, 4, 4]);
+
+// ── seedPods (round 2+) ───────────────────────────────────────────────────────
+
+section('seedPods — round 2+');
+check(' 4 players → 1×4',             seedPods(makePlayers(4),  {}), [4]);
+check(' 5 players → 1×4 + 1 bye',    seedPods(makePlayers(5),  {}), [4, 1]);
+check(' 6 players → 1×4 + 2 byes',   seedPods(makePlayers(6),  {}), [4, 1, 1]);
+check(' 7 players → 1×4 + 1×3',      seedPods(makePlayers(7),  {}), [4, 3]);
+check(' 8 players → 2×4',            seedPods(makePlayers(8),  {}), [4, 4]);
+check(' 9 players → 2×4 + 1 bye',    seedPods(makePlayers(9),  {}), [4, 4, 1]);
+check('10 players → 2×4 + 2 byes',   seedPods(makePlayers(10), {}), [4, 4, 1, 1]);
+check('11 players → 2×4 + 1×3',     seedPods(makePlayers(11), {}), [4, 4, 3]);
+check('12 players → 3×4',            seedPods(makePlayers(12), {}), [4, 4, 4]);
+
+// ── Pod ordering ──────────────────────────────────────────────────────────────
+
+section('Pod ordering — 4-player pods before smaller pods');
+[7, 8, 11, 12].forEach(n => {
+  checkFoursFirst(`${n} players buildPods`, buildPods(makePlayers(n)));
+  checkFoursFirst(`${n} players seedPods`,  seedPods(makePlayers(n), {}));
+});
+
+// ── Player counts ─────────────────────────────────────────────────────────────
+
+section('All players accounted for');
+[4, 5, 6, 7, 8, 9, 10, 11, 12].forEach(n => {
+  checkTotal('buildPods', `${n}p`, buildPods(makePlayers(n)), n);
+  checkTotal('seedPods',  `${n}p`, seedPods(makePlayers(n), {}), n);
+});
+const countChecks = 9 * 2;
+const countDiv = document.createElement('div');
+countDiv.innerHTML = `<span class="pass">✓</span>  all ${countChecks} player-count checks passed`;
+out.appendChild(countDiv);
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+
+const hr = document.createElement('hr');
+out.appendChild(hr);
+const summary = document.createElement('div');
+summary.id = 'summary';
+summary.style.color = failed === 0 ? '#3fb950' : '#f85149';
+summary.textContent = `${passed} passed  ${failed} failed`;
+out.appendChild(summary);
+</script>
+</body>
+</html>

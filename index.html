@@ -283,13 +283,6 @@
       <label>Registration Page Description (optional)</label>
       <textarea id="new-event-desc" placeholder="e.g. Entry is free. Bring your best deck. Prizes for top 4." rows="3" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%;resize:vertical;"></textarea>
     </div>
-    <div class="form-group">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="new-event-prefer-four" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
-        Prefer 4-player pods (give byes to remainder players)
-      </label>
-      <p style="margin:4px 0 0 24px;font-size:12px;color:var(--text-muted);">e.g. 9 players → 2 pods of 4 + 1 bye instead of 3 pods of 3</p>
-    </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
       <button class="btn-primary" onclick="submitNewEvent()">Create Event</button>
@@ -328,13 +321,6 @@
     <div class="form-group">
       <label>Registration Page Description (optional)</label>
       <textarea id="edit-event-desc" rows="3" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:14px;width:100%;resize:vertical;"></textarea>
-    </div>
-    <div class="form-group">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="edit-event-prefer-four" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
-        Prefer 4-player pods (give byes to remainder players)
-      </label>
-      <p style="margin:4px 0 0 24px;font-size:12px;color:var(--text-muted);">e.g. 9 players → 2 pods of 4 + 1 bye instead of 3 pods of 3</p>
     </div>
     <div id="edit-event-info" style="display:none;" class="alert alert-info"></div>
     <div id="edit-event-warn" style="display:none;" class="alert alert-warn"></div>
@@ -474,47 +460,20 @@ function goBackToTournament() {
 // ============================================================
 // POD MATH
 // ============================================================
-function buildPods(players, preferFour = false) {
+function buildPods(players) {
   const n = players.length;
   const pods = [];
   let rem = [...players];
-
-  if (preferFour) {
-    // Fill as many 4-player pods as possible; each leftover player gets a bye pod
-    const numFourPods = Math.floor(n / 4);
-    for (let i = 0; i < numFourPods; i++) pods.push(rem.splice(0, 4));
-    while (rem.length) pods.push(rem.splice(0, 1)); // bye pods
-    return pods;
-  }
-
   const r = n % 4;
-  if (r === 0) {
-    // all 4s
-    while (rem.length) pods.push(rem.splice(0, 4));
-  } else if (r === 3) {
-    // all 4s + one 3
-    const three = rem.splice(0, 3);
-    pods.push(three);
-    while (rem.length) pods.push(rem.splice(0, 4));
-  } else if (r === 2) {
-    // two 3s + rest 4s
-    pods.push(rem.splice(0, 3));
-    pods.push(rem.splice(0, 3));
-    while (rem.length) pods.push(rem.splice(0, 4));
+
+  if (r === 1 || r === 2) {
+    // Give byes to remainder players; fill 4-player pods first
+    while (rem.length > r) pods.push(rem.splice(0, 4));
+    while (rem.length) pods.push(rem.splice(0, 1));
   } else {
-    // r === 1
-    if (n === 5) {
-      pods.push(rem.splice(0, 5));
-    } else if (n >= 9) {
-      // three 3s + rest 4s
-      pods.push(rem.splice(0, 3));
-      pods.push(rem.splice(0, 3));
-      pods.push(rem.splice(0, 3));
-      while (rem.length) pods.push(rem.splice(0, 4));
-    } else {
-      // n=1? fallback
-      pods.push(rem);
-    }
+    // r===0: all 4s. r===3: 4s then one 3-player pod last.
+    while (rem.length > 3) pods.push(rem.splice(0, 4));
+    if (rem.length) pods.push(rem.splice(0));
   }
   return pods;
 }
@@ -530,21 +489,19 @@ function shuffle(arr) {
 
 // Seed pods by points. Players sorted desc by points.
 // Group similar-point players together, avoid repeat pod-mates.
-function seedPods(players, history, preferFour = false, byedPlayerIds = new Set()) {
-  // Sort descending by points, then by wins as tiebreak
+function seedPods(players, history, byedPlayerIds = new Set()) {
   const sorted = [...players].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     return b.wins - a.wins;
   });
   const n = sorted.length;
+  const r = n % 4;
 
-  if (preferFour && n % 4 !== 0) {
-    const numByes = n % 4;
+  if (r === 1 || r === 2) {
+    // Give byes to lowest-ranked players who haven't had one yet
     const pool = [...sorted];
     const byePods = [];
-
-    for (let i = 0; i < numByes; i++) {
-      // Lowest-ranked player who hasn't had a bye; fall back to lowest ranked
+    for (let i = 0; i < r; i++) {
       let byeIdx = -1;
       for (let j = pool.length - 1; j >= 0; j--) {
         if (!byedPlayerIds.has(pool[j].id)) { byeIdx = j; break; }
@@ -552,24 +509,13 @@ function seedPods(players, history, preferFour = false, byedPlayerIds = new Set(
       if (byeIdx === -1) byeIdx = pool.length - 1;
       byePods.push([pool.splice(byeIdx, 1)[0]]);
     }
-
-    // Remaining count is now divisible by 4
     const regularPods = [];
     for (let i = 0; i < pool.length; i += 4) regularPods.push(pool.slice(i, i + 4));
     return [...regularPods, ...byePods];
   }
 
-  // Determine pod sizes (no byes)
-  let sizes = [];
-  const r = n % 4;
-  if (r === 0) sizes = Array(n / 4).fill(4);
-  else if (r === 3) sizes = [3, ...Array((n - 3) / 4).fill(4)];
-  else if (r === 2) sizes = [3, 3, ...Array((n - 6) / 4).fill(4)];
-  else if (r === 1) {
-    if (n === 5) sizes = [5];
-    else sizes = [3, 3, 3, ...Array((n - 9) / 4).fill(4)];
-  }
-
+  // r===0: all 4s. r===3: 4s then one 3-player pod last.
+  const sizes = r === 0 ? Array(n / 4).fill(4) : [...Array((n - 3) / 4).fill(4), 3];
   const pods = [];
   let idx = 0;
   for (const size of sizes) {
@@ -582,11 +528,9 @@ function seedPods(players, history, preferFour = false, byedPlayerIds = new Set(
 function generateRound(event) {
   const roundNum = event.rounds.length + 1;
   const players = event.players;
-  const preferFour = !!event.preferFourPods;
-
   if (roundNum === 1) {
     const shuffled = shuffle(players);
-    const podArrays = buildPods(shuffled, preferFour);
+    const podArrays = buildPods(shuffled);
     return podArrays.map((p, i) => ({
       id: i,
       players: p.map(pl => pl.id),
@@ -607,7 +551,7 @@ function generateRound(event) {
         }
       }
     }
-    const podArrays = seedPods(players, history, preferFour, byedPlayerIds);
+    const podArrays = seedPods(players, history, byedPlayerIds);
     return podArrays.map((p, i) => ({
       id: i,
       players: p.map(pl => pl.id),
@@ -635,11 +579,10 @@ function _submitNewEvent() {
   const swissRounds = parseInt(document.getElementById('new-event-rounds').value);
   const topCutSize = parseInt(document.getElementById('new-event-topcut').value);
   const description = document.getElementById('new-event-desc').value.trim();
-  const preferFourPods = document.getElementById('new-event-prefer-four').checked;
 
   const newEvent = {
     id: Date.now().toString(),
-    name, date, format, swissRounds, topCutSize, description, preferFourPods,
+    name, date, format, swissRounds, topCutSize, description,
     status: 'registration',
     players: [],
     rounds: [],
@@ -1515,7 +1458,6 @@ function openCreateModal() {
   document.getElementById('new-event-name').value = '';
   document.getElementById('new-event-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('new-event-desc').value = '';
-  document.getElementById('new-event-prefer-four').checked = false;
   document.getElementById('create-event-error').style.display = 'none';
   openModal('modal-create');
   setTimeout(() => document.getElementById('new-event-name').focus(), 50);
@@ -1658,7 +1600,6 @@ function openEditEventModal() {
   document.getElementById('edit-event-rounds').value = event.swissRounds;
   document.getElementById('edit-event-topcut').value = event.topCutSize || 8;
   document.getElementById('edit-event-desc').value = event.description || '';
-  document.getElementById('edit-event-prefer-four').checked = !!event.preferFourPods;
   document.getElementById('edit-event-warn').style.display = 'none';
   document.getElementById('edit-event-error').style.display = 'none';
   document.getElementById('edit-event-info').style.display = 'none';
@@ -1680,7 +1621,6 @@ function saveEventSettings() {
   const newRounds = parseInt(document.getElementById('edit-event-rounds').value);
   const newTopCut = parseInt(document.getElementById('edit-event-topcut').value);
   const newDesc = document.getElementById('edit-event-desc').value.trim();
-  const newPreferFour = document.getElementById('edit-event-prefer-four').checked;
   const errEl = document.getElementById('edit-event-error');
 
   if (newRounds < event.rounds.length) {
@@ -1693,7 +1633,6 @@ function saveEventSettings() {
   event.swissRounds = newRounds;
   event.topCutSize = newTopCut;
   event.description = newDesc;
-  event.preferFourPods = newPreferFour;
   saveEvent(event);
   closeModal('modal-edit-event');
   renderTournament();
